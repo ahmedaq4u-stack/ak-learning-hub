@@ -1,0 +1,1261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>AK Learning Hub | Master Your Knowledge</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #4361EE;
+            --primary-light: #6C8CFF;
+            --primary-dark: #3A56D4;
+            --secondary: #F72585;
+            --secondary-light: #FF589B;
+            --accent: #FFB703;
+            --success: #06D6A0;
+            --danger: #EF476F;
+            --warning: #FB8B67;
+            --light: #FFFFFF;
+            --gray-light: #F8F9FA;
+            --gray: #6C757D;
+            --dark: #212529;
+            --dark-text: #2C3E50;
+            --glass-bg: rgba(255, 255, 255, 0.85);
+            --glass-border: rgba(0, 0, 0, 0.08);
+            --border-radius: 20px;
+            --box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        body {
+            font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #F5F7FA 0%, #E8ECF1 100%);
+            color: var(--dark);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Light Animated Background */
+        .animated-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -2;
+            overflow: hidden;
+        }
+
+        .gradient-sphere {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(100px);
+            opacity: 0.4;
+            animation: float 25s infinite ease-in-out;
+        }
+
+        .sphere-1 {
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, #4361EE, #F72585);
+            top: -300px;
+            left: -300px;
+        }
+
+        .sphere-2 {
+            width: 700px;
+            height: 700px;
+            background: radial-gradient(circle, #FFB703, #06D6A0);
+            bottom: -350px;
+            right: -350px;
+        }
+
+        .sphere-3 {
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, #FB8B67, #4361EE);
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            33% { transform: translate(40px, -40px) scale(1.1); }
+            66% { transform: translate(-30px, 30px) scale(0.9); }
+        }
+
+        /* Particle Canvas */
+        #particleCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 0 20px;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Beautiful Gradient Header */
+        header {
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            background: linear-gradient(135deg, #FFFFFF 0%, #F8F9FA 100%);
+            border-bottom: 2px solid transparent;
+            border-image: linear-gradient(135deg, var(--primary), var(--secondary), var(--accent));
+            border-image-slice: 1;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 20px rgba(67, 97, 238, 0.1);
+        }
+
+        header.scrolled {
+            background: linear-gradient(135deg, #FFFFFF 0%, #FFFFFF 100%);
+            box-shadow: 0 4px 25px rgba(0, 0, 0, 0.08);
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+            padding: 0.8rem 0;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 5px 15px;
+            background: linear-gradient(135deg, rgba(67, 97, 238, 0.08), rgba(247, 37, 133, 0.08));
+            border-radius: 50px;
+            transition: var(--transition);
+        }
+
+        .logo:hover {
+            background: linear-gradient(135deg, rgba(67, 97, 238, 0.15), rgba(247, 37, 133, 0.15));
+            transform: translateY(-2px);
+        }
+
+        .logo-icon {
+            width: 45px;
+            height: 45px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(67, 97, 238, 0.25);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .logo-icon i {
+            font-size: 1.4rem;
+            color: white;
+        }
+
+        .logo-text h1 {
+            font-size: 1.3rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        .logo-text p {
+            font-size: 0.65rem;
+            color: var(--gray);
+            letter-spacing: 1px;
+        }
+
+        /* Navigation */
+        nav ul {
+            display: flex;
+            gap: 6px;
+            background: rgba(67, 97, 238, 0.05);
+            padding: 5px;
+            border-radius: 50px;
+            backdrop-filter: blur(10px);
+        }
+
+        nav a {
+            color: var(--dark);
+            text-decoration: none;
+            padding: 8px 20px;
+            border-radius: 50px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        nav a:hover {
+            background: linear-gradient(135deg, rgba(67, 97, 238, 0.1), rgba(247, 37, 133, 0.1));
+            transform: translateY(-2px);
+        }
+
+        nav a.active {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            box-shadow: 0 4px 12px rgba(67, 97, 238, 0.3);
+        }
+
+        /* User Actions */
+        .user-actions {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            background: rgba(67, 97, 238, 0.05);
+            padding: 5px 15px;
+            border-radius: 50px;
+        }
+
+        .notification-bell {
+            position: relative;
+            cursor: pointer;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            background: white;
+            transition: var(--transition);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        .notification-bell:hover {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            transform: rotate(15deg);
+        }
+
+        .notification-count {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: var(--danger);
+            border-radius: 50%;
+            width: 18px;
+            height: 18px;
+            font-size: 0.65rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            animation: bounce 1s infinite;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+        }
+
+        .avatar {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--accent), var(--warning));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+            transition: var(--transition);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        .avatar:hover {
+            transform: scale(1.1) rotate(5deg);
+        }
+
+        .btn-outline {
+            background: white;
+            border: 1px solid var(--primary);
+            color: var(--primary);
+            padding: 8px 18px;
+            border-radius: 50px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .btn-outline:hover {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border-color: transparent;
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border: none;
+            color: white;
+            padding: 12px 28px;
+            border-radius: 50px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            box-shadow: 0 4px 12px rgba(67, 97, 238, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(67, 97, 238, 0.4);
+        }
+
+        /* Voice Control Button */
+        .voice-control {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(67, 97, 238, 0.1);
+            padding: 6px 12px;
+            border-radius: 50px;
+            margin-bottom: 15px;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .voice-control:hover {
+            background: rgba(67, 97, 238, 0.2);
+        }
+
+        .voice-control.active {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+        }
+
+        .voice-control i {
+            font-size: 1rem;
+        }
+
+        /* Hero Section */
+        .hero {
+            text-align: center;
+            padding: 3rem 2rem;
+            background: white;
+            border-radius: 30px;
+            margin: 2rem 0;
+            box-shadow: var(--box-shadow);
+            border: 1px solid rgba(0, 0, 0, 0.04);
+        }
+
+        .hero h1 {
+            font-size: 2.8rem;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        .hero p {
+            font-size: 1rem;
+            color: var(--dark-text);
+            max-width: 600px;
+            margin: 0 auto 1.5rem;
+        }
+
+        /* Stats Cards */
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin: 2rem 0;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 20px;
+            padding: 1.5rem;
+            text-align: center;
+            transition: var(--transition);
+            box-shadow: var(--box-shadow);
+            border: 1px solid rgba(0, 0, 0, 0.04);
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+        }
+
+        .stat-icon {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--primary);
+        }
+
+        .stat-card div:last-child {
+            color: var(--dark-text);
+            font-weight: 500;
+        }
+
+        /* Quiz Cards */
+        .quiz-subjects-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1.8rem;
+            margin: 2rem 0;
+        }
+
+        .quiz-card {
+            perspective: 1000px;
+            cursor: pointer;
+        }
+
+        .quiz-card-inner {
+            position: relative;
+            width: 100%;
+            height: 300px;
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+            border-radius: 20px;
+        }
+
+        .quiz-card:hover .quiz-card-inner {
+            transform: rotateY(180deg);
+        }
+
+        .quiz-card-front, .quiz-card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: 20px;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            background: white;
+            box-shadow: var(--box-shadow);
+        }
+
+        .quiz-card-front h3 {
+            color: var(--dark-text);
+            margin-top: 0.5rem;
+        }
+
+        .quiz-card-front p {
+            color: var(--gray);
+        }
+
+        .quiz-card-front i {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .quiz-card-back {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            transform: rotateY(180deg);
+        }
+
+        .quiz-card-back h3 {
+            color: white;
+        }
+
+        .quiz-card-back button {
+            background: white;
+            color: var(--primary);
+            border: none;
+            padding: 10px 25px;
+            border-radius: 50px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 1rem;
+        }
+
+        /* Products Grid */
+        .products-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin: 2rem 0;
+        }
+
+        .product-card {
+            background: white;
+            border-radius: 20px;
+            overflow: hidden;
+            transition: var(--transition);
+            box-shadow: var(--box-shadow);
+        }
+
+        .product-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+        }
+
+        .product-image {
+            height: 160px;
+            background: linear-gradient(135deg, var(--primary-light), var(--secondary-light));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+            color: white;
+        }
+
+        .product-info {
+            padding: 1.2rem;
+        }
+
+        .product-title {
+            font-size: 1rem;
+            font-weight: 700;
+            margin-bottom: 0.3rem;
+            color: var(--dark-text);
+        }
+
+        .product-info p {
+            color: var(--gray);
+            font-size: 0.85rem;
+        }
+
+        .product-price {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--primary);
+            margin: 0.5rem 0;
+        }
+
+        /* Category Buttons */
+        .categories {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            margin: 1.5rem 0;
+        }
+
+        .category-btn {
+            padding: 8px 20px;
+            background: white;
+            border: 1px solid #E0E0E0;
+            border-radius: 50px;
+            color: var(--dark-text);
+            cursor: pointer;
+            transition: var(--transition);
+            font-weight: 500;
+        }
+
+        .category-btn:hover, .category-btn.active {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            border-color: transparent;
+            transform: translateY(-2px);
+        }
+
+        /* Quiz Container */
+        .quiz-container {
+            background: white;
+            border-radius: 25px;
+            overflow: hidden;
+            box-shadow: var(--box-shadow);
+            max-width: 800px;
+            margin: 2rem auto;
+        }
+
+        .quiz-header {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            padding: 1rem 1.5rem;
+            color: white;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        /* 2x2 Grid Layout for Options */
+        .options-container {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            padding: 1.5rem;
+        }
+
+        .option {
+            background: var(--gray-light);
+            padding: 1rem 1.2rem;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border: 2px solid transparent;
+            color: var(--dark-text);
+            font-weight: 500;
+        }
+
+        .option:hover {
+            background: rgba(67, 97, 238, 0.1);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+
+        .option.selected {
+            border-color: var(--primary);
+            background: rgba(67, 97, 238, 0.1);
+        }
+
+        .option.disabled {
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .option-letter {
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 1rem;
+            flex-shrink: 0;
+        }
+
+        .option-text {
+            flex: 1;
+            font-size: 0.95rem;
+            line-height: 1.3;
+        }
+
+        /* Feedback Message */
+        .feedback-message {
+            margin: 15px 0;
+            padding: 12px;
+            border-radius: 12px;
+            text-align: center;
+            font-weight: 500;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .feedback-correct {
+            background: rgba(6, 214, 160, 0.15);
+            border: 1px solid var(--success);
+            color: var(--success);
+        }
+
+        .feedback-incorrect {
+            background: rgba(239, 71, 111, 0.15);
+            border: 1px solid var(--danger);
+            color: var(--danger);
+        }
+
+        /* Timer */
+        .timer-bar-container {
+            background: #E0E0E0;
+            height: 6px;
+            margin: 0 1.5rem;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .timer-bar {
+            height: 100%;
+            width: 100%;
+            background: linear-gradient(90deg, var(--success), var(--warning), var(--danger));
+            transition: width 1s linear;
+        }
+
+        /* Leaderboard */
+        .leaderboard-container {
+            background: white;
+            border-radius: 25px;
+            overflow: hidden;
+            margin: 2rem 0;
+            box-shadow: var(--box-shadow);
+        }
+
+        .leaderboard-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem;
+            border-bottom: 1px solid #E0E0E0;
+        }
+
+        .leaderboard-item:hover {
+            background: var(--gray-light);
+        }
+
+        .leaderboard-item strong {
+            color: var(--dark-text);
+        }
+
+        .rank {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: white;
+        }
+
+        .rank-1 { background: linear-gradient(135deg, #FFD700, #FFA500); }
+        .rank-2 { background: linear-gradient(135deg, #C0C0C0, #A0A0A0); }
+        .rank-3 { background: linear-gradient(135deg, #CD7F32, #A66A28); }
+
+        /* Question Text */
+        .question-text {
+            color: var(--dark-text);
+            font-size: 1.25rem;
+            line-height: 1.5;
+            margin-bottom: 1.5rem;
+            text-align: center;
+            font-weight: 600;
+            padding: 0 0.5rem;
+        }
+
+        /* Footer */
+        footer {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0c29 100%);
+            margin-top: 4rem;
+            padding: 3rem 0 1.5rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        footer::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--primary), var(--secondary), var(--accent), var(--success));
+            animation: borderFlow 3s linear infinite;
+        }
+
+        @keyframes borderFlow {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        .footer-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .footer-section h3, .footer-section h4 {
+            margin-bottom: 1rem;
+            color: white;
+            position: relative;
+            display: inline-block;
+        }
+
+        .footer-section h3::after, .footer-section h4::after {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 0;
+            width: 40px;
+            height: 3px;
+            background: linear-gradient(90deg, var(--accent), var(--secondary));
+            border-radius: 3px;
+        }
+
+        .footer-section p {
+            color: rgba(255, 255, 255, 0.7);
+            line-height: 1.6;
+        }
+
+        .social-links {
+            display: flex;
+            gap: 12px;
+            margin-top: 1rem;
+        }
+
+        .social-link {
+            width: 38px;
+            height: 38px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: var(--transition);
+            text-decoration: none;
+            color: white;
+        }
+
+        .social-link:hover {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            transform: translateY(-3px) rotate(360deg);
+        }
+
+        .footer-links {
+            list-style: none;
+        }
+
+        .footer-links li {
+            margin-bottom: 0.6rem;
+        }
+
+        .footer-links a {
+            color: rgba(255, 255, 255, 0.7);
+            text-decoration: none;
+            transition: var(--transition);
+        }
+
+        .footer-links a:hover {
+            color: var(--accent);
+            transform: translateX(5px);
+            display: inline-block;
+        }
+
+        .footer-contact {
+            list-style: none;
+        }
+
+        .footer-contact li {
+            margin-bottom: 0.6rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .footer-contact i {
+            width: 25px;
+            color: var(--accent);
+        }
+
+        .footer-newsletter {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .footer-newsletter h4 {
+            color: white;
+            margin-bottom: 0.5rem;
+        }
+
+        .footer-newsletter p {
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .newsletter-form {
+            display: flex;
+            gap: 10px;
+            max-width: 500px;
+            margin: 1rem auto 0;
+            flex-wrap: wrap;
+        }
+
+        .newsletter-form input {
+            flex: 1;
+            padding: 12px 20px;
+            border-radius: 50px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+
+        .newsletter-form input::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .newsletter-form button {
+            padding: 12px 28px;
+            border-radius: 50px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border: none;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .newsletter-form button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(67, 97, 238, 0.4);
+        }
+
+        .footer-bottom {
+            text-align: center;
+            padding-top: 1.5rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.8rem;
+        }
+
+        .scroll-top {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 45px;
+            height: 45px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            opacity: 0;
+            transition: var(--transition);
+            border: none;
+            color: white;
+            box-shadow: 0 4px 12px rgba(67, 97, 238, 0.3);
+        }
+
+        .scroll-top.visible {
+            opacity: 1;
+        }
+
+        .scroll-top:hover {
+            transform: translateY(-5px) scale(1.1);
+        }
+
+        .page {
+            display: none;
+            animation: fadeIn 0.4s ease;
+        }
+
+        .page.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Responsive: On mobile, options become 1 column */
+        @media (max-width: 600px) {
+            .options-container {
+                grid-template-columns: 1fr;
+            }
+            .hero h1 { font-size: 1.8rem; }
+            .header-content { flex-direction: column; }
+            .stats { grid-template-columns: repeat(2, 1fr); }
+            nav ul { flex-wrap: wrap; justify-content: center; }
+        }
+
+        .auth-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.55);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            z-index: 2000;
+        }
+
+        .auth-backdrop.active {
+            display: flex;
+        }
+
+        .auth-modal {
+            width: 100%;
+            max-width: 520px;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 18px;
+            box-shadow: var(--box-shadow);
+            padding: 22px;
+            backdrop-filter: blur(12px);
+        }
+
+        .auth-modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 14px;
+        }
+
+        .auth-modal-header h3 {
+            margin: 0;
+            font-size: 1.2rem;
+            color: var(--dark-text);
+        }
+
+        .auth-close {
+            width: 36px;
+            height: 36px;
+            border: none;
+            border-radius: 12px;
+            background: rgba(0, 0, 0, 0.06);
+            cursor: pointer;
+        }
+
+        .auth-form {
+            display: grid;
+            gap: 12px;
+        }
+
+        .auth-form input {
+            width: 100%;
+            padding: 12px 14px;
+            border-radius: 14px;
+            border: 1px solid rgba(0, 0, 0, 0.12);
+            outline: none;
+            font-size: 0.95rem;
+        }
+
+        .auth-form-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            justify-content: flex-end;
+            flex-wrap: wrap;
+            margin-top: 4px;
+        }
+
+        .auth-switch {
+            border: none;
+            background: transparent;
+            color: var(--primary);
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .auth-error {
+            display: none;
+            padding: 10px 12px;
+            border-radius: 14px;
+            background: rgba(239, 71, 111, 0.12);
+            color: #B42318;
+            border: 1px solid rgba(239, 71, 111, 0.25);
+            font-size: 0.9rem;
+        }
+
+        .auth-error.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="animated-bg">
+        <div class="gradient-sphere sphere-1"></div>
+        <div class="gradient-sphere sphere-2"></div>
+        <div class="gradient-sphere sphere-3"></div>
+    </div>
+    <canvas id="particleCanvas"></canvas>
+
+    <header id="mainHeader">
+        <div class="container header-content">
+            <div class="logo">
+                <div class="logo-icon"><i class="fas fa-brain"></i></div>
+                <div class="logo-text">
+                    <h1>AK Learning Hub</h1>
+                    <p>MASTER YOUR FUTURE</p>
+                </div>
+            </div>
+            <nav>
+                <ul>
+                    <li><a class="nav-link active" data-page="home"><i class="fas fa-home"></i> Home</a></li>
+                    <li><a class="nav-link" data-page="quizzes"><i class="fas fa-question-circle"></i> Quizzes</a></li>
+                    <li><a class="nav-link" data-page="affiliate"><i class="fas fa-store"></i> Shop</a></li>
+                    <li><a class="nav-link" data-page="leaderboard"><i class="fas fa-trophy"></i> Leaders</a></li>
+                </ul>
+            </nav>
+            <div class="user-actions">
+                <div class="notification-bell"><i class="fas fa-bell"></i><span class="notification-count">3</span></div>
+                <div class="avatar" id="userAvatar">AJ</div>
+                <button class="btn-outline" id="logoutBtn"><i class="fas fa-sign-out-alt"></i> Exit</button>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <section id="home" class="page active">
+            <div class="hero">
+                <h1>Welcome to AK Learning Hub</h1>
+                <p>Transform your learning experience with interactive quizzes, track progress, and compete with peers worldwide</p>
+                <button class="btn-primary" id="startLearningBtn"><i class="fas fa-play"></i> Start Your Journey</button>
+            </div>
+            <div class="stats">
+                <div class="stat-card"><div class="stat-icon"><i class="fas fa-users"></i></div><div class="stat-number" id="studentCount">0</div><div>Active Learners</div></div>
+                <div class="stat-card"><div class="stat-icon"><i class="fas fa-question"></i></div><div class="stat-number" id="questionCount">0</div><div>Total Questions</div></div>
+                <div class="stat-card"><div class="stat-icon"><i class="fas fa-trophy"></i></div><div class="stat-number" id="quizCount">0</div><div>Quizzes Taken</div></div>
+                <div class="stat-card"><div class="stat-icon"><i class="fas fa-star"></i></div><div class="stat-number" id="ratingCount">4.8</div><div>User Rating</div></div>
+            </div>
+            <h2 style="text-align: center; color: var(--dark-text);">Explore Subjects</h2>
+            <div id="quizCardsGrid" class="quiz-subjects-grid"></div>
+        </section>
+
+        <section id="quizzes" class="page">
+            <div class="hero"><h2>All Quizzes</h2><p>Choose your subject and test your knowledge</p></div>
+            <div id="quizzesGrid" class="quiz-subjects-grid"></div>
+        </section>
+
+        <section id="affiliate" class="page">
+            <div class="hero"><h2>Recommended Products</h2><p>Curated items to enhance your learning journey</p></div>
+            <div class="categories" id="categoryFilters"></div>
+            <div id="productsGrid" class="products-grid"></div>
+        </section>
+
+        <section id="leaderboard" class="page">
+            <div class="hero"><h2>Leaderboard</h2><p>Top performers this week</p></div>
+            <div class="leaderboard-container" id="leaderboardContainer"></div>
+        </section>
+
+        <section id="quiz" class="page">
+            <div class="quiz-container">
+                <div class="quiz-header">
+                    <span id="quizSubjectTitle">Mathematics Quiz</span>
+                    <span id="questionCounter">Question 1/10</span>
+                </div>
+                <div class="timer-bar-container"><div class="timer-bar" id="timerBar"></div></div>
+                <div style="padding: 1.5rem;">
+                    <div class="voice-control" id="voiceToggleBtn">
+                        <i class="fas fa-volume-up"></i>
+                        <span id="voiceStatus">🔊 Voice Reading: ON</span>
+                    </div>
+                    <div class="question-text" id="questionText"></div>
+                    <div id="optionsContainer" class="options-container"></div>
+                    <div id="feedbackMessage" class="feedback-message" style="display: none;"></div>
+                    <div style="display: flex; justify-content: space-between; margin-top: 1.5rem;">
+                        <span><i class="fas fa-clock"></i> <span id="timerDisplay">00:30</span></span>
+                        <button class="btn-primary" id="nextQuestionBtn" style="display: none;">Next →</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="results" class="page">
+            <div class="hero">
+                <h2>Your Results</h2>
+                <div style="font-size: 3rem; font-weight: bold; margin: 1rem 0; color: var(--primary);" id="finalScore">0/0</div>
+                <p id="resultMessage" style="color: var(--dark-text);"></p>
+                <div style="display: flex; gap: 1rem; justify-content: center; margin-top: 1rem;">
+                    <button class="btn-primary" id="retryQuizBtn">Try Again</button>
+                    <button class="btn-outline" id="homeFromResultsBtn">Home</button>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <div class="auth-backdrop" id="authBackdrop" role="dialog" aria-modal="true" aria-hidden="true">
+        <div class="auth-modal">
+            <div class="auth-modal-header">
+                <h3 id="authTitle">Sign In</h3>
+                <button class="auth-close" id="authCloseBtn" type="button">&times;</button>
+            </div>
+            <div class="auth-error" id="authError"></div>
+            <form class="auth-form" id="authForm">
+                <input type="text" id="authName" placeholder="Full name (for sign up)" autocomplete="name">
+                <input type="email" id="authEmail" placeholder="Email address" required autocomplete="email">
+                <input type="password" id="authPassword" placeholder="Password" required autocomplete="current-password">
+                <div class="auth-form-actions">
+                    <button class="auth-switch" id="authSwitchBtn" type="button">Create account</button>
+                    <button class="btn-primary" id="authSubmitBtn" type="submit"><i class="fas fa-lock"></i> Sign In</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <footer>
+        <div class="container">
+            <div class="footer-grid">
+                <div class="footer-section">
+                    <h3><i class="fas fa-brain"></i> AK Learning Hub</h3>
+                    <p>Empowering minds through interactive learning experiences. Join thousands of students worldwide.</p>
+                    <div class="social-links">
+                        <a href="https://web.facebook.com/profile.php?id=61588542307359" target="_blank" class="social-link"><i class="fab fa-facebook-f"></i></a>
+                        <a href="https://x.com/twitt_login?lang=en" target="_blank" class="social-link"><i class="fab fa-twitter"></i></a>
+                        <a href="https://www.instagram.com/" target="_blank" class="social-link"><i class="fab fa-instagram"></i></a>
+                    </div>
+                </div>
+                <div class="footer-section">
+                    <h4>Quick Links</h4>
+                    <ul class="footer-links">
+                        <li><a href="#" class="nav-link-footer" data-page="home">Home</a></li>
+                        <li><a href="#" class="nav-link-footer" data-page="quizzes">Quizzes</a></li>
+                        <li><a href="#" class="nav-link-footer" data-page="affiliate">Shop</a></li>
+                        <li><a href="#" class="nav-link-footer" data-page="leaderboard">Leaderboard</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h4>Quiz Subjects</h4>
+                    <ul class="footer-links">
+                        <li>Mathematics</li>
+                        <li>General Science</li>
+                        <li>Physics</li>
+                        <li>Chemistry</li>
+                        <li>Biology</li>
+                        <li>Islamic History</li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h4>Get in Touch</h4>
+                    <ul class="footer-contact">
+                        <li><i class="fas fa-envelope"></i> aq4u0007@gmail.com</li>
+                        <li><i class="fas fa-map-marker-alt"></i> Karachi, Pakistan</li>
+                        <li><i class="fas fa-clock"></i> Mon-Fri: 9AM - 6PM</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-newsletter">
+                <h4><i class="fas fa-envelope-open-text"></i> Stay Updated</h4>
+                <p>Subscribe to get the latest quizzes, features, and learning tips!</p>
+                <form class="newsletter-form" id="newsletterForm">
+                    <input type="email" placeholder="Enter your email address" required>
+                    <button type="submit"><i class="fas fa-paper-plane"></i> Subscribe</button>
+                </form>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2024 AK Learning Hub. All rights reserved. | Empowering minds worldwide</p>
+                <div style="margin-top: 0.5rem;">
+                    <a href="#" style="color: rgba(255,255,255,0.5); text-decoration: none; margin: 0 10px;">Privacy Policy</a>
+                    <a href="#" style="color: rgba(255,255,255,0.5); text-decoration: none; margin: 0 10px;">Terms of Service</a>
+                    <a href="#" style="color: rgba(255,255,255,0.5); text-decoration: none; margin: 0 10px;">FAQ</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+    <button class="scroll-top" id="scrollTopBtn"><i class="fas fa-arrow-up"></i></button>
+
+    <script>window.AK_API_BASE = "";</script>
+    <script type="module" src="assets/js/firebase-auth.js"></script>
+    <script src="assets/js/main-app.js"></script>
+</body>
+</html>

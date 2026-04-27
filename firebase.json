@@ -1,0 +1,13 @@
+{
+  "hosting": {
+    "site": "ak-learning-hub-b629c",
+    "public": ".",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**", "functions/**"],
+    "rewrites": [
+      { "source": "/admin.html", "destination": "/ADMIN.HTML" },
+      { "source": "/index.html", "destination": "/INDEX.HTML" },
+      { "source": "/", "destination": "/INDEX.HTML" },
+      { "source": "**", "destination": "/INDEX.HTML" }
+    ]
+  }
+}

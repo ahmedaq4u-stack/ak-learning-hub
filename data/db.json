@@ -1,0 +1,281 @@
+{
+  "adminPassword": "ejaz4u123",
+  "subjects": [
+    {
+      "key": "maths",
+      "name": "Mathematics",
+      "icon": "fa-calculator",
+      "color": "#6366F1"
+    },
+    {
+      "key": "science",
+      "name": "General Science",
+      "icon": "fa-flask",
+      "color": "#10B981"
+    },
+    {
+      "key": "physics",
+      "name": "Physics",
+      "icon": "fa-atom",
+      "color": "#EC4899"
+    },
+    {
+      "key": "chemistry",
+      "name": "Chemistry",
+      "icon": "fa-vial",
+      "color": "#F59E0B"
+    },
+    {
+      "key": "biology",
+      "name": "Biology",
+      "icon": "fa-dna",
+      "color": "#8B5CF6"
+    },
+    {
+      "key": "islamic-history",
+      "name": "Islamic History",
+      "icon": "fa-mosque",
+      "color": "#06B6D4"
+    }
+  ],
+  "questions": {
+    "maths": [
+      {
+        "id": "8e55bab9-9cf1-4bb9-b5ee-5653ab97055e",
+        "question": "What is pi to two decimals?",
+        "options": [
+          "3.14",
+          "3.16",
+          "3.12",
+          "3.18"
+        ],
+        "correct": 0,
+        "explanation": ""
+      },
+      {
+        "id": "65654c9b-de54-488c-ab19-6aa54f6e17e5",
+        "question": "15 x 8 = ?",
+        "options": [
+          "100",
+          "110",
+          "120",
+          "130"
+        ],
+        "correct": 2,
+        "explanation": ""
+      },
+      {
+        "id": "f9f58fc5-137b-4027-a3a1-d80e89cd83af",
+        "question": "2x + 5 = 15, x = ?",
+        "options": [
+          "5",
+          "7",
+          "8",
+          "10"
+        ],
+        "correct": 0,
+        "explanation": ""
+      },
+      {
+        "id": "01ec57bb-a1af-436e-9175-113e782b1861",
+        "question": "Area of a square with side 6 cm?",
+        "options": [
+          "24 cm2",
+          "30 cm2",
+          "36 cm2",
+          "42 cm2"
+        ],
+        "correct": 2,
+        "explanation": ""
+      }
+    ],
+    "science": [
+      {
+        "id": "b00400c0-f87a-45d8-8570-914c9a01cd92",
+        "question": "Which planet is known as the Red Planet?",
+        "options": [
+          "Venus",
+          "Mars",
+          "Jupiter",
+          "Saturn"
+        ],
+        "correct": 1,
+        "explanation": ""
+      },
+      {
+        "id": "c2704f0c-7f09-4bba-9ba4-32a0e49ba3bc",
+        "question": "What is the chemical symbol for Gold?",
+        "options": [
+          "Go",
+          "Gd",
+          "Au",
+          "Ag"
+        ],
+        "correct": 2,
+        "explanation": ""
+      },
+      {
+        "id": "284f446e-dbb9-4cff-8664-839eae6dfd14",
+        "question": "What is H2O commonly known as?",
+        "options": [
+          "Oxygen",
+          "Hydrogen",
+          "Water",
+          "Salt"
+        ],
+        "correct": 2,
+        "explanation": ""
+      }
+    ],
+    "physics": [
+      {
+        "id": "28195437-10f5-4a28-b36c-f194fe2a7b6d",
+        "question": "What is the unit of force?",
+        "options": [
+          "Joule",
+          "Newton",
+          "Watt",
+          "Pascal"
+        ],
+        "correct": 1,
+        "explanation": ""
+      },
+      {
+        "id": "2aebd5fb-185b-435c-ac14-ec7bb4d993e6",
+        "question": "What is the speed of light?",
+        "options": [
+          "3x10^8 m/s",
+          "3x10^6 m/s",
+          "3x10^5 m/s",
+          "3x10^7 m/s"
+        ],
+        "correct": 0,
+        "explanation": ""
+      }
+    ],
+    "chemistry": [
+      {
+        "id": "71a3ba52-8b41-459d-bd31-9fabb2e8dfc8",
+        "question": "What is the pH of pure water?",
+        "options": [
+          "5",
+          "7",
+          "9",
+          "8"
+        ],
+        "correct": 1,
+        "explanation": ""
+      },
+      {
+        "id": "91dac771-8284-4461-bf8a-4a0c08703380",
+        "question": "Which element has the symbol O?",
+        "options": [
+          "Oxygen",
+          "Gold",
+          "Osmium",
+          "Silver"
+        ],
+        "correct": 0,
+        "explanation": ""
+      }
+    ],
+    "biology": [
+      {
+        "id": "8ada6fb5-611f-4d81-b0a7-abc55aa11143",
+        "question": "What is the largest organ in the human body?",
+        "options": [
+          "Heart",
+          "Liver",
+          "Skin",
+          "Brain"
+        ],
+        "correct": 2,
+        "explanation": ""
+      },
+      {
+        "id": "2dc2da09-36aa-4486-a4ad-3f488d754a09",
+        "question": "Which gas do plants absorb?",
+        "options": [
+          "Oxygen",
+          "Carbon Dioxide",
+          "Nitrogen",
+          "Hydrogen"
+        ],
+        "correct": 1,
+        "explanation": ""
+      }
+    ],
+    "islamic-history": [
+      {
+        "id": "aa01e42d-6e9b-4b51-ad9a-7c3d213ee298",
+        "question": "Who was the first Caliph in Islam?",
+        "options": [
+          "Umar ibn Khattab",
+          "Abu Bakr Siddiq",
+          "Usman ibn Affan",
+          "Ali ibn Abi Talib"
+        ],
+        "correct": 1,
+        "explanation": ""
+      },
+      {
+        "id": "32dab961-8fff-4490-8c27-dfba2d65f57a",
+        "question": "Where is the Kaaba located?",
+        "options": [
+          "Madinah",
+          "Jerusalem",
+          "Makkah",
+          "Cairo"
+        ],
+        "correct": 2,
+        "explanation": ""
+      }
+    ]
+  },
+  "categories": [
+    "gadgets",
+    "books",
+    "skincare",
+    "fashion",
+    "fitness",
+    "herbal-medicines",
+    "electronics",
+    "home-decor",
+    "kitchen"
+  ],
+  "products": [
+    {
+      "id": "0c3541bd-6de5-4697-be14-cd5c5a70a536",
+      "title": "Wireless Headphones",
+      "description": "Noise cancellation and 30 hour battery life.",
+      "price": "$49",
+      "rating": 4.5,
+      "category": "gadgets",
+      "platform": "Temu",
+      "url": "https://www.temu.com/",
+      "image": ""
+    },
+    {
+      "id": "077c76df-98b6-493c-b0e2-413e49b3fd7e",
+      "title": "Math Workbook",
+      "description": "Algebra and geometry practice for daily learning.",
+      "price": "$24",
+      "rating": 4.8,
+      "category": "books",
+      "platform": "Amazon",
+      "url": "https://www.amazon.com/",
+      "image": ""
+    }
+  ],
+  "settings": {
+    "maintenanceMode": false,
+    "voiceReading": true,
+    "defaultTimer": 30
+  },
+  "subscribers": [],
+  "quizAttempts": [],
+  "statsSeed": {
+    "totalUsers": 1580,
+    "totalQuizzesTaken": 2847
+  }
+}
