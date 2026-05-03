@@ -38,20 +38,25 @@ function apiFetch(url, options = {}) {
 
     if (!response.ok) {
       const message = typeof payload === "string" ? payload : payload.message || "Request failed.";
-      throw new Error(message);
+      const error = new Error(message);
+      error.status = response.status;
+      error.payload = payload;
+      throw error;
     }
 
     return payload;
   });
 }
 
-function showAlert(message, type = "success") {
+function showAlert(message, type = "success", autoHide = true) {
   const alertDiv = document.getElementById("alertMessage");
   if (!alertDiv) return;
 
   alertDiv.className = `alert alert-${type} show`;
   alertDiv.innerHTML = `<i class="fas fa-${type === "success" ? "check-circle" : "exclamation-circle"}"></i> ${escapeHtml(message)}`;
-  setTimeout(() => alertDiv.classList.remove("show"), 3000);
+  if (autoHide) {
+    setTimeout(() => alertDiv.classList.remove("show"), 3000);
+  }
 }
 
 function escapeHtml(value) {
@@ -63,8 +68,22 @@ function escapeHtml(value) {
   });
 }
 
+function cleanText(value) {
+  return String(value || "").trim();
+}
+
+function normalizeClassLevel(value) {
+  const trimmed = String(value || "").trim();
+  return /^(6|7|8|9|10)$/.test(trimmed) ? trimmed : "";
+}
+
 function getSelectedSubject() {
   return document.getElementById("subjectSelect")?.value || subjects[0]?.key || "";
+}
+
+function getSelectedClassLevel() {
+  const value = String(document.getElementById("classSelectAdmin")?.value || "").trim();
+  return /^(6|7|8|9|10)$/.test(value) ? value : "";
 }
 
 function updateStats(payload) {
@@ -111,12 +130,18 @@ function refreshSubjectDropdown(selectedKey) {
 
 function refreshQuestionList() {
   const subject = getSelectedSubject();
-  const questionList = quizDatabase[subject] || [];
+  const selectedClassLevel = getSelectedClassLevel();
+  const questionList = (quizDatabase[subject] || []).filter((question) => {
+    if (!selectedClassLevel) return true;
+    return String(question.classLevel || "") === selectedClassLevel;
+  });
   const container = document.getElementById("questionList");
   if (!container) return;
 
   if (!questionList.length) {
-    container.innerHTML = '<div style="text-align:center; padding:1rem; color: var(--text-gray);">No questions yet</div>';
+    container.innerHTML = `<div style="text-align:center; padding:1rem; color: var(--text-gray);">${
+      selectedClassLevel ? `No questions for Class ${escapeHtml(selectedClassLevel)} yet` : "No questions yet"
+    }</div>`;
     return;
   }
 
@@ -127,7 +152,7 @@ function refreshQuestionList() {
           <div class="question-text">
             <strong>${escapeHtml(question.question)}</strong>
             <div class="question-meta">
-              ${question.options.map(escapeHtml).join(" | ")} | Correct: ${escapeHtml(question.options[question.correct] || "")}
+              ${question.options.map(escapeHtml).join(" | ")} | Correct: ${escapeHtml(question.options[question.correct] || "")}${question.classLevel ? ` | Class: ${escapeHtml(question.classLevel)}` : ""}
             </div>
           </div>
           <div class="question-actions">
@@ -162,15 +187,23 @@ function refreshCategoryList() {
 }
 
 function refreshCategoryDropdown(selectedCategory) {
-  const select = document.getElementById("productCategory");
-  if (!select) return;
+  const selects = [
+    document.getElementById("productCategory"),
+    document.getElementById("autoFetchCategory"),
+    document.getElementById("previewCategory")
+  ].filter(Boolean);
 
-  select.innerHTML = categories
-    .map((category) => `<option value="${category}">${escapeHtml(category)}</option>`)
-    .join("");
+  if (!selects.length) return;
+
+  const html = (categories || []).map((category) => `<option value="${escapeHtml(category)}">${escapeHtml(category)}</option>`).join("");
+  for (const select of selects) {
+    select.innerHTML = html;
+  }
 
   if (selectedCategory && categories.includes(selectedCategory)) {
-    select.value = selectedCategory;
+    for (const select of selects) {
+      select.value = selectedCategory;
+    }
   }
 }
 
@@ -437,6 +470,7 @@ async function removeCategory(name) {
 
 async function submitQuestion() {
   const subject = getSelectedSubject();
+  const classLevel = getSelectedClassLevel();
   const question = document.getElementById("newQuestion").value.trim();
   const options = document
     .getElementById("newOptions")
@@ -463,7 +497,7 @@ async function submitQuestion() {
 
     await apiFetch(url, {
       method,
-      body: JSON.stringify({ subject, question, options, correct })
+      body: JSON.stringify({ subject, classLevel, question, options, correct })
     });
 
     await loadAdminData(subject);
@@ -480,6 +514,10 @@ function editQuestion(id, subject) {
 
   editingQuestionId = id;
   document.getElementById("subjectSelect").value = subject;
+  const classSelect = document.getElementById("classSelectAdmin");
+  if (classSelect) {
+    classSelect.value = question.classLevel ? String(question.classLevel) : "";
+  }
   document.getElementById("newQuestion").value = question.question;
   document.getElementById("newOptions").value = question.options.join(", ");
   document.getElementById("correctIndex").value = String(question.correct);
@@ -497,6 +535,69 @@ async function deleteQuestion(id, subject) {
   } catch (error) {
     showAlert(error.message, "danger");
   }
+}
+
+async function clearQuestionsForSubject() {
+  const subject = getSelectedSubject();
+  const classLevel = getSelectedClassLevel();
+  if (!subject) return;
+
+  const subjectName = subjects.find((item) => item.key === subject)?.name || subject;
+  const label = classLevel ? `Class ${classLevel}` : "All Classes";
+  const confirmation = window.prompt(
+    `Type DELETE to remove all questions for "${subjectName}" (${label}). This cannot be undone.`
+  );
+  if (confirmation !== "DELETE") {
+    return;
+  }
+
+  try {
+    const query = new URLSearchParams({ subject });
+    if (classLevel) query.set("classLevel", classLevel);
+    const payload = await apiFetch(`${API_BASE}/admin/questions?${query.toString()}`, {
+      method: "DELETE"
+    });
+    await loadAdminData(subject);
+    showAlert(payload.message || "Questions cleared.", "success");
+  } catch (error) {
+    if (error?.status === 404) {
+      await clearQuestionsViaIndividualDeletes(subject, classLevel);
+      return;
+    }
+    showAlert(error.message, "danger");
+  }
+}
+
+async function clearQuestionsViaIndividualDeletes(subject, classLevel) {
+  const pool = (quizDatabase[subject] || []).filter((question) => {
+    if (!classLevel) return true;
+    return String(question.classLevel || "") === String(classLevel);
+  });
+
+  if (!pool.length) {
+    showAlert("No questions found to delete.", "danger");
+    return;
+  }
+
+  let removed = 0;
+  const batchSize = 10;
+  showAlert(`Deleting questions... 0/${pool.length}`, "success", false);
+
+  for (let index = 0; index < pool.length; index += batchSize) {
+    const batch = pool.slice(index, index + batchSize);
+    await Promise.all(
+      batch.map((item) =>
+        apiFetch(`${API_BASE}/admin/questions/${encodeURIComponent(item.id)}?subject=${encodeURIComponent(subject)}`, {
+          method: "DELETE"
+        })
+      )
+    );
+    removed += batch.length;
+    showAlert(`Deleting questions... ${removed}/${pool.length}`, "success", false);
+  }
+
+  await loadAdminData(subject);
+  showAlert(`Removed ${removed} questions successfully.`, "success");
 }
 
 async function previewBulkQuestions() {
@@ -533,8 +634,9 @@ async function previewBulkQuestions() {
 
 async function addBulkQuestions() {
   const subject = getSelectedSubject();
+  const classLevel = getSelectedClassLevel();
   const text = document.getElementById("bulkQuestionsText").value.trim();
-  const parsedQuestions = parseBulkQuestionsFromFormat(text);
+  const parsedQuestions = parseBulkQuestionsFromFormat(text).map((item) => ({ ...item, classLevel }));
 
   if (!parsedQuestions.length) {
     showAlert("No valid questions found.", "danger");
@@ -565,6 +667,7 @@ async function handleBulkFileUpload(file) {
 
   const status = document.getElementById("bulkUploadStatus");
   const subject = getSelectedSubject();
+  const classLevel = getSelectedClassLevel();
 
   try {
     const text = await file.text();
@@ -572,7 +675,23 @@ async function handleBulkFileUpload(file) {
 
     if (file.name.toLowerCase().endsWith(".json")) {
       const raw = JSON.parse(text);
-      parsedQuestions = Array.isArray(raw) ? raw : raw.questions || [];
+      if (Array.isArray(raw)) {
+        parsedQuestions = raw;
+      } else if (Array.isArray(raw?.questions)) {
+        parsedQuestions = raw.questions;
+      } else if (raw?.questions && typeof raw.questions === "object") {
+        const fromSelectedSubject = raw.questions?.[subject];
+        if (Array.isArray(fromSelectedSubject)) {
+          parsedQuestions = fromSelectedSubject;
+        } else {
+          const all = Object.values(raw.questions).flatMap((value) => (Array.isArray(value) ? value : []));
+          parsedQuestions = all;
+        }
+      } else if (Array.isArray(raw?.[subject])) {
+        parsedQuestions = raw[subject];
+      } else {
+        parsedQuestions = [];
+      }
     } else if (file.name.toLowerCase().endsWith(".csv")) {
       parsedQuestions = text
         .split(/\r?\n/)
@@ -583,23 +702,231 @@ async function handleBulkFileUpload(file) {
           question: cols[1].trim(),
           options: [cols[2].trim(), cols[3].trim(), cols[4].trim(), cols[5].trim()],
           correct: Number(cols[6].trim()),
-          explanation: ""
+          explanation: "",
+          classLevel
         }));
     } else {
       throw new Error("Only CSV and JSON files are supported.");
     }
 
-    const payload = await apiFetch(`${API_BASE}/admin/questions/bulk`, {
-      method: "POST",
-      body: JSON.stringify({ subject, questions: parsedQuestions })
-    });
-    status.innerHTML = `<span style="color: var(--success);">${escapeHtml(payload.message)}</span>`;
+    const normalizedQuestions = normalizeBulkQuestions(parsedQuestions, classLevel);
+    if (!normalizedQuestions.length) {
+      throw new Error(
+        "No valid questions found. Ensure each question has: question text, 4 options, and correct (0-3 or A-D)."
+      );
+    }
+
+    const chunkSize = 100;
+    let addedTotal = 0;
+    showAlert(`Uploading questions... 0/${normalizedQuestions.length}`, "success", false);
+    status.innerHTML = `<span style="color: var(--success);">Uploading questions... 0/${normalizedQuestions.length}</span>`;
+
+    for (let index = 0; index < normalizedQuestions.length; index += chunkSize) {
+      const chunk = normalizedQuestions.slice(index, index + chunkSize);
+      const payload = await apiFetch(`${API_BASE}/admin/questions/bulk`, {
+        method: "POST",
+        body: JSON.stringify({ subject, questions: chunk })
+      });
+      addedTotal += Number(payload?.added || 0);
+      const processed = Math.min(index + chunk.length, normalizedQuestions.length);
+      showAlert(`Uploading questions... ${processed}/${normalizedQuestions.length}`, "success", false);
+      status.innerHTML = `<span style="color: var(--success);">Uploading questions... ${processed}/${normalizedQuestions.length}</span>`;
+    }
+
     await loadAdminData(subject);
-    showAlert(payload.message, "success");
+    showAlert(`Added ${addedTotal} questions successfully.`, "success");
+    status.innerHTML = `<span style="color: var(--success);">Added ${addedTotal} questions successfully.</span>`;
   } catch (error) {
     status.innerHTML = `<span style="color: var(--danger);">${escapeHtml(error.message)}</span>`;
     showAlert(error.message, "danger");
   }
+}
+
+function normalizeBulkQuestions(input, fallbackClassLevel) {
+  const rows = Array.isArray(input) ? input : [];
+  const normalized = [];
+
+  for (const item of rows) {
+    const questionText = cleanText(
+      getAnyValue(item, ["question", "Question", "questionText", "QuestionText", "text", "Text", "q", "title", "prompt"])
+    );
+    if (!questionText) continue;
+
+    const extracted = extractOptionsAndCorrect(item);
+    const options = extracted.options;
+
+    if (options.length !== 4) continue;
+
+    const explanation = cleanText(getAnyValue(item, ["explanation", "Explanation", "detail", "reason", "solution", "hint"]) || "");
+
+    const correct =
+      typeof extracted.correct === "number" && Number.isFinite(extracted.correct)
+        ? extracted.correct
+        : normalizeCorrectIndex(item, options);
+    if (correct < 0 || correct > 3) continue;
+
+    const classLevel = normalizeClassLevel(getAnyValue(item, ["classLevel", "class", "grade", "level"]) || fallbackClassLevel);
+
+    normalized.push({
+      question: questionText,
+      options,
+      correct,
+      explanation,
+      ...(classLevel ? { classLevel } : {})
+    });
+  }
+
+  return normalized;
+}
+
+function normalizeCorrectIndex(item, options) {
+  const raw =
+    item?.correct ??
+    item?.answer ??
+    item?.correctIndex ??
+    item?.correctAnswer ??
+    item?.correct_option ??
+    item?.correctOption ??
+    item?.answerKey ??
+    item?.ans ??
+    item?.Answer ??
+    item?.Correct ??
+    item?.CorrectAnswer;
+  if (typeof raw === "number" && Number.isFinite(raw)) {
+    const truncated = Math.trunc(raw);
+    if (truncated >= 1 && truncated <= 4) return truncated - 1;
+    return Math.max(0, Math.min(3, truncated));
+  }
+
+  const value = String(raw ?? "").trim();
+  if (!value) return -1;
+
+  if (/^[0-3]$/.test(value)) return Number(value);
+  if (/^[1-4]$/.test(value)) return Number(value) - 1;
+
+  const letterMatch = value.toUpperCase().match(/[A-D]/);
+  const letter = letterMatch ? letterMatch[0] : "";
+  if (letter === "A") return 0;
+  if (letter === "B") return 1;
+  if (letter === "C") return 2;
+  if (letter === "D") return 3;
+
+  const normalizedValue = value.toLowerCase();
+  const matchIndex = options.findIndex((option) => option.toLowerCase() === normalizedValue);
+  return matchIndex;
+}
+
+function getAnyValue(item, keys) {
+  if (!item || typeof item !== "object") return "";
+  for (const key of keys) {
+    if (key in item) return item[key];
+  }
+  const lower = Object.create(null);
+  for (const realKey of Object.keys(item)) {
+    lower[String(realKey).toLowerCase()] = realKey;
+  }
+  for (const key of keys) {
+    const realKey = lower[String(key).toLowerCase()];
+    if (realKey) return item[realKey];
+  }
+  return "";
+}
+
+function extractOptionsAndCorrect(item) {
+  let correct = null;
+
+  const direct = item?.options ?? item?.answers ?? item?.Choices ?? item?.choices;
+  if (Array.isArray(direct)) {
+    const cleaned = direct
+      .map((value) => {
+        if (value && typeof value === "object") {
+          if (value.correct === true || value.isCorrect === true) {
+            correct = correct ?? 0;
+          }
+          return cleanText(value.text ?? value.value ?? value.option ?? value.answer ?? value.label ?? "");
+        }
+        return cleanText(value);
+      })
+      .filter(Boolean);
+
+    if (cleaned.length >= 4) {
+      if (correct !== null) {
+        const idx = direct.findIndex((value) => value && typeof value === "object" && (value.correct === true || value.isCorrect === true));
+        if (idx >= 0 && idx <= 3) correct = idx;
+      }
+      return { options: cleaned.slice(0, 4), correct };
+    }
+  }
+
+  if (direct && typeof direct === "object" && !Array.isArray(direct)) {
+    const keysUpper = Object.keys(direct).map((k) => String(k).toUpperCase());
+    const hasLetters = ["A", "B", "C", "D"].every((k) => keysUpper.includes(k));
+    if (hasLetters) {
+      const options = ["A", "B", "C", "D"].map((k) => {
+        const realKey = Object.keys(direct).find((rk) => String(rk).toUpperCase() === k);
+        return cleanText(direct[realKey]);
+      });
+      return { options, correct };
+    }
+  }
+
+  const optionMap = { A: "", B: "", C: "", D: "" };
+  const numeric = [];
+  if (item && typeof item === "object") {
+    for (const [rawKey, rawValue] of Object.entries(item)) {
+      const key = String(rawKey).trim();
+      const value = cleanText(rawValue);
+      if (!value) continue;
+
+      const upper = key.toUpperCase();
+      if (upper === "A" || upper === "B" || upper === "C" || upper === "D") {
+        optionMap[upper] = optionMap[upper] || value;
+        continue;
+      }
+
+      const letterMatch = upper.match(/OPTION[\s_]*([A-D])$/) || upper.match(/^OPTION([A-D])$/) || upper.match(/^([A-D])_OPTION$/);
+      if (letterMatch) {
+        const letter = letterMatch[1];
+        optionMap[letter] = optionMap[letter] || value;
+        continue;
+      }
+
+      const numMatch = upper.match(/^OPTION[\s_]*(\d)$/) || upper.match(/^OPTION(\d)$/);
+      if (numMatch) {
+        const idx = Number(numMatch[1]) - 1;
+        if (idx >= 0 && idx <= 3) numeric[idx] = numeric[idx] || value;
+      }
+    }
+  }
+
+  const letterOptions = ["A", "B", "C", "D"].map((k) => optionMap[k]).filter(Boolean);
+  if (letterOptions.length === 4) return { options: ["A", "B", "C", "D"].map((k) => optionMap[k]), correct };
+  if (numeric.filter(Boolean).length === 4) return { options: numeric.slice(0, 4), correct };
+
+  const optionsText = cleanText(getAnyValue(item, ["optionsText", "Options", "options", "answersText"]));
+  if (optionsText) {
+    const parsed = parseOptionsFromText(optionsText);
+    if (parsed.length === 4) return { options: parsed, correct };
+  }
+
+  return { options: [], correct };
+}
+
+function parseOptionsFromText(text) {
+  const lines = String(text || "")
+    .split(/\r?\n|[;|]/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const map = { A: "", B: "", C: "", D: "" };
+  for (const line of lines) {
+    const match = line.match(/^([A-D])[).:\-]\s*(.+)$/i);
+    if (match) {
+      map[match[1].toUpperCase()] = cleanText(match[2]);
+    }
+  }
+  const options = ["A", "B", "C", "D"].map((k) => map[k]).filter(Boolean);
+  return options.length === 4 ? ["A", "B", "C", "D"].map((k) => map[k]) : [];
 }
 
 async function fetchProductPreviewFromUrl() {
@@ -619,10 +946,33 @@ async function fetchProductPreviewFromUrl() {
       method: "POST",
       body: JSON.stringify({ url })
     });
+
+    const previewImage = document.getElementById("previewImage");
+    if (previewImage) {
+      const imageUrl = String(fetchedProductData.image || "").trim();
+      if (imageUrl) {
+        previewImage.src = imageUrl;
+        previewImage.style.display = "inline-block";
+      } else {
+        previewImage.src = "";
+        previewImage.style.display = "none";
+      }
+    }
+
     document.getElementById("previewTitle").innerText = fetchedProductData.title || "-";
     document.getElementById("previewDesc").innerText = fetchedProductData.description || "-";
     document.getElementById("previewPrice").innerText = fetchedProductData.price || "-";
     document.getElementById("previewPlatform").innerText = fetchedProductData.platform || "-";
+
+    const previewCategory = document.getElementById("previewCategory");
+    if (previewCategory) {
+      const currentCategory = document.getElementById("autoFetchCategory")?.value || document.getElementById("productCategory")?.value || categories[0] || "general";
+      refreshCategoryDropdown(currentCategory);
+      if (currentCategory) {
+        previewCategory.value = currentCategory;
+      }
+    }
+
     document.getElementById("fetchPreview").classList.add("show");
     showAlert("Product preview loaded.", "success");
   } catch (error) {
@@ -630,6 +980,40 @@ async function fetchProductPreviewFromUrl() {
   } finally {
     button.disabled = false;
     button.innerHTML = originalHtml;
+  }
+}
+
+async function fetchAndAddProductFromUrl() {
+  const url = document.getElementById("productUrl").value.trim();
+  if (!url) {
+    showAlert("Please enter a product URL.", "danger");
+    return;
+  }
+
+  const category = document.getElementById("autoFetchCategory")?.value || document.getElementById("productCategory")?.value || "";
+  const button = document.getElementById("fetchAndAddProductBtn");
+  const originalHtml = button?.innerHTML;
+  if (button) {
+    button.disabled = true;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Fetching...';
+  }
+
+  try {
+    const payload = await apiFetch(`${API_BASE}/admin/products/auto-import`, {
+      method: "POST",
+      body: JSON.stringify({ url, category })
+    });
+    await loadAdminData();
+    document.getElementById("fetchPreview")?.classList.remove("show");
+    fetchedProductData = null;
+    showAlert(payload.message || "Product imported.", "success");
+  } catch (error) {
+    showAlert(error.message, "danger");
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.innerHTML = originalHtml;
+    }
   }
 }
 
@@ -649,12 +1033,14 @@ async function confirmFetchedProduct() {
   if (!fetchedProductData) return;
 
   try {
+    const previewCategory = document.getElementById("previewCategory")?.value || "";
+    const selectedCategory = previewCategory || document.getElementById("productCategory")?.value || categories[0] || "general";
     await submitProduct({
       title: fetchedProductData.title,
       description: fetchedProductData.description,
       price: fetchedProductData.price,
       rating: fetchedProductData.rating || 4,
-      category: categories[0] || "gadgets",
+      category: selectedCategory,
       platform: fetchedProductData.platform,
       url: fetchedProductData.url,
       image: fetchedProductData.image || ""
@@ -822,6 +1208,8 @@ function bindEvents() {
   document.getElementById("addSubjectBtn").addEventListener("click", addSubject);
   document.getElementById("addCategoryBtn").addEventListener("click", addCategory);
   document.getElementById("subjectSelect").addEventListener("change", refreshQuestionList);
+  document.getElementById("classSelectAdmin").addEventListener("change", refreshQuestionList);
+  document.getElementById("clearQuestionsBtn").addEventListener("click", clearQuestionsForSubject);
   document.getElementById("addQuestionBtn").addEventListener("click", submitQuestion);
   document.getElementById("previewBulkBtn").addEventListener("click", previewBulkQuestions);
   document.getElementById("addBulkBtn").addEventListener("click", addBulkQuestions);
@@ -834,6 +1222,7 @@ function bindEvents() {
     event.target.value = "";
   });
   document.getElementById("fetchProductBtn").addEventListener("click", fetchProductPreviewFromUrl);
+  document.getElementById("fetchAndAddProductBtn").addEventListener("click", fetchAndAddProductFromUrl);
   document.getElementById("confirmAddProductBtn").addEventListener("click", confirmFetchedProduct);
   document.getElementById("cancelPreviewBtn").addEventListener("click", () => {
     fetchedProductData = null;

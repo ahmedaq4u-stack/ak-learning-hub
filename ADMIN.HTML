@@ -766,6 +766,18 @@
                             <select id="subjectSelect" class="form-control"></select>
                         </div>
 
+                        <div class="form-group">
+                            <label>Select Class (6 to 10)</label>
+                            <select id="classSelectAdmin" class="form-control">
+                                <option value="">All Classes</option>
+                                <option value="6">Class 6</option>
+                                <option value="7">Class 7</option>
+                                <option value="8">Class 8</option>
+                                <option value="9">Class 9</option>
+                                <option value="10">Class 10</option>
+                            </select>
+                        </div>
+
                         <!-- PASTE BULK QUESTIONS - SUPPORTS YOUR FORMAT -->
                         <div class="paste-bulk-area">
                             <h4><i class="fas fa-paste"></i> 📋 Paste Bulk Questions</h4>
@@ -826,7 +838,12 @@
                         </button>
 
                         <hr>
-                        <h4 style="margin-bottom: 0.8rem;">📋 Existing Questions</h4>
+                        <div style="display:flex; align-items:center; justify-content:space-between; gap: 12px; margin-bottom: 0.8rem;">
+                            <h4 style="margin: 0;">📋 Existing Questions</h4>
+                            <button class="btn btn-danger" id="clearQuestionsBtn">
+                                <i class="fas fa-trash-alt"></i> Delete All
+                            </button>
+                        </div>
                         <div id="questionList" class="question-list">Loading...</div>
                     </div>
                 </div>
@@ -854,15 +871,34 @@
                                 <label>Product URL</label>
                                 <input type="url" id="productUrl" class="form-control" placeholder="https://www.temu.com/product/...">
                             </div>
+                            <div class="form-group">
+                                <label>Category</label>
+                                <select id="autoFetchCategory" class="form-control"></select>
+                            </div>
                             <button class="btn btn-primary" id="fetchProductBtn" style="width: 100%;">
                                 <i class="fas fa-cloud-download-alt"></i> Fetch Product Details
                             </button>
+                            <button class="btn btn-success" id="fetchAndAddProductBtn" style="width: 100%; margin-top: 0.5rem;">
+                                <i class="fas fa-cart-plus"></i> Fetch & Add to Store
+                            </button>
                             <div id="fetchPreview" class="fetch-preview">
                                 <h5 style="margin-bottom: 0.5rem;">📦 Preview</h5>
+                                <div class="preview-item" style="align-items:center;">
+                                    <strong>Image:</strong>
+                                    <span>
+                                        <img id="previewImage" src="" alt="Preview Image" style="display:none; max-width: 120px; max-height: 120px; border-radius: 10px; border: 1px solid #E5E7EB;">
+                                    </span>
+                                </div>
                                 <div class="preview-item"><strong>Title:</strong> <span id="previewTitle">-</span></div>
                                 <div class="preview-item"><strong>Description:</strong> <span id="previewDesc">-</span></div>
                                 <div class="preview-item"><strong>Price:</strong> <span id="previewPrice">-</span></div>
                                 <div class="preview-item"><strong>Platform:</strong> <span id="previewPlatform">-</span></div>
+                                <div class="preview-item">
+                                    <strong>Category:</strong>
+                                    <span>
+                                        <select id="previewCategory" class="form-control" style="min-width: 160px;"></select>
+                                    </span>
+                                </div>
                                 <div style="margin-top: 0.8rem; display: flex; gap: 8px;">
                                     <button class="btn btn-success" id="confirmAddProductBtn" style="flex:1;">✓ Add to Store</button>
                                     <button class="btn btn-outline" id="cancelPreviewBtn">Cancel</button>
@@ -966,7 +1002,7 @@
         </div>
     </div>
 
-    <script>window.AK_API_BASE = "";</script>
+    <script>window.AK_API_BASE = "https://ak-learning-hub-production.up.railway.app";</script>
     <script src="assets/js/admin-app.js"></script>
 </body>
 </html>

@@ -1,7 +1,10 @@
 const express = require("express");
+const rateLimit = require("express-rate-limit");
 const fs = require("fs");
+const helmet = require("helmet");
 const path = require("path");
 const crypto = require("crypto");
+const { version: APP_VERSION } = require("./package.json");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -108,6 +111,7 @@ const DEFAULT_PRODUCTS = [
 function createDefaultDatabase() {
   return {
     adminPassword: ADMIN_PASSWORD,
+    adminAllowedPhones: ["+923332786013"],
     subjects: DEFAULT_SUBJECTS,
     questions: DEFAULT_QUESTIONS,
     categories: DEFAULT_CATEGORIES,
@@ -209,6 +213,7 @@ function normalizeDb(db) {
   normalized.products = Array.isArray(normalized.products) ? normalized.products : [];
   normalized.subscribers = Array.isArray(normalized.subscribers) ? normalized.subscribers : [];
   normalized.quizAttempts = Array.isArray(normalized.quizAttempts) ? normalized.quizAttempts : [];
+  normalized.contactMessages = Array.isArray(normalized.contactMessages) ? normalized.contactMessages : [];
   normalized.statsSeed = normalized.statsSeed || { totalUsers: 1580, totalQuizzesTaken: 2847 };
   normalized.settings = {
     maintenanceMode: Boolean(normalized.settings?.maintenanceMode),
@@ -219,6 +224,10 @@ function normalizeDb(db) {
   if (!normalized.adminPassword) {
     normalized.adminPassword = ADMIN_PASSWORD;
   }
+
+  normalized.adminAllowedPhones = Array.isArray(normalized.adminAllowedPhones)
+    ? normalized.adminAllowedPhones.map((value) => cleanText(value)).filter(Boolean)
+    : ["+923332786013"];
 
   return normalized;
 }
@@ -241,6 +250,24 @@ function makeSubjectKey(name) {
 
 function cleanText(value) {
   return String(value || "").trim();
+}
+
+function normalizeClassLevel(value) {
+  const cleaned = cleanText(value);
+  return /^(6|7|8|9|10)$/.test(cleaned) ? cleaned : "";
+}
+
+function filterQuestionsByClass(questionsBySubject, classLevel) {
+  const normalizedClass = normalizeClassLevel(classLevel);
+  if (!normalizedClass) return questionsBySubject;
+
+  const filtered = {};
+  for (const [subjectKey, list] of Object.entries(questionsBySubject || {})) {
+    filtered[subjectKey] = Array.isArray(list)
+      ? list.filter((question) => !question?.classLevel || String(question.classLevel) === normalizedClass)
+      : [];
+  }
+  return filtered;
 }
 
 function toTitleFromSlug(slug) {
@@ -329,10 +356,11 @@ function createToken() {
   return crypto.randomBytes(24).toString("hex");
 }
 
-function authMiddleware(req, res, next) {
+async function authMiddleware(req, res, next) {
   const authHeader = req.headers.authorization || "";
   const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
-  const expiresAt = authTokens.get(token);
+  const record = authTokens.get(token);
+  const expiresAt = typeof record === "number" ? record : record?.expiresAt;
 
   if (!token || !expiresAt || expiresAt < Date.now()) {
     if (token) {
@@ -346,8 +374,9 @@ function authMiddleware(req, res, next) {
 
 function cleanupExpiredTokens() {
   const now = Date.now();
-  for (const [token, expiresAt] of authTokens.entries()) {
-    if (expiresAt < now) {
+  for (const [token, record] of authTokens.entries()) {
+    const expiresAt = typeof record === "number" ? record : record?.expiresAt;
+    if (!expiresAt || expiresAt < now) {
       authTokens.delete(token);
     }
   }
@@ -355,7 +384,7 @@ function cleanupExpiredTokens() {
 
 function parsePlatformFromUrl(url) {
   const value = String(url || "").toLowerCase();
-  if (value.includes("temu.com")) return "Temu";
+  if (value.includes("temu") || value.includes("temu.com") || value.includes("temu.to") || value.includes("share.temu")) return "Temu";
   if (value.includes("amazon.")) return "Amazon";
   if (value.includes("daraz")) return "Daraz";
   if (value.includes("aliexpress")) return "AliExpress";
@@ -396,15 +425,159 @@ function extractMetaContent(html, patterns) {
   return "";
 }
 
+function safeJsonParse(value) {
+  try {
+    return JSON.parse(value);
+  } catch (error) {
+    return null;
+  }
+}
+
+function normalizePreviewPrice(rawPrice, currency) {
+  const trimmed = String(rawPrice || "").trim();
+  if (!trimmed) return "";
+  if (/[$€£]|(usd|eur|gbp|pkr|inr|aed|sar|cad|aud)/i.test(trimmed)) return trimmed;
+  if (!/^\d+(\.\d+)?$/.test(trimmed)) return trimmed;
+  const curr = String(currency || "").trim().toUpperCase();
+  if (curr && curr !== "USD") return `${curr} ${trimmed}`;
+  return `$${trimmed}`;
+}
+
+function extractJsonLdProduct(html) {
+  const scriptRegex = /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+  const candidates = [];
+  let match;
+
+  while ((match = scriptRegex.exec(html))) {
+    const raw = String(match[1] || "").trim();
+    if (!raw) continue;
+    const parsed = safeJsonParse(raw);
+    if (!parsed) continue;
+    candidates.push(parsed);
+  }
+
+  const flat = [];
+  const pushNode = (node) => {
+    if (!node) return;
+    if (Array.isArray(node)) {
+      for (const item of node) pushNode(item);
+      return;
+    }
+    if (typeof node !== "object") return;
+    flat.push(node);
+    if (Array.isArray(node["@graph"])) pushNode(node["@graph"]);
+  };
+
+  for (const item of candidates) pushNode(item);
+
+  const isProduct = (node) => {
+    const type = node?.["@type"];
+    if (!type) return false;
+    if (Array.isArray(type)) return type.some((t) => String(t).toLowerCase() === "product");
+    return String(type).toLowerCase() === "product";
+  };
+
+  const product = flat.find(isProduct) || null;
+  if (!product) return null;
+
+  const offers = Array.isArray(product.offers) ? product.offers[0] : product.offers;
+  const price = offers?.price ?? offers?.lowPrice ?? offers?.highPrice ?? "";
+  const currency = offers?.priceCurrency ?? "";
+  const image = Array.isArray(product.image) ? product.image[0] : product.image;
+
+  return {
+    title: String(product.name || "").trim(),
+    description: String(product.description || "").trim(),
+    image: String(image || "").trim(),
+    price: normalizePreviewPrice(price, currency)
+  };
+}
+
+function extractNextDataProduct(html) {
+  const match = html.match(/<script[^>]+id=["']__NEXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/i);
+  if (!match?.[1]) return null;
+  const parsed = safeJsonParse(match[1].trim());
+  if (!parsed) return null;
+
+  const wantedKeys = new Set([
+    "name",
+    "title",
+    "producttitle",
+    "productname",
+    "description",
+    "shortdescription",
+    "image",
+    "images",
+    "mainimage",
+    "primaryimage",
+    "saleprice",
+    "price",
+    "minprice",
+    "maxprice",
+    "currency",
+    "pricecurrency"
+  ]);
+
+  const found = { title: "", description: "", image: "", price: "", currency: "" };
+  const visited = new Set();
+
+  const walk = (node, depth) => {
+    if (!node || depth > 10) return;
+    if (typeof node !== "object") return;
+    if (visited.has(node)) return;
+    visited.add(node);
+
+    if (Array.isArray(node)) {
+      for (const item of node) walk(item, depth + 1);
+      return;
+    }
+
+    for (const [rawKey, value] of Object.entries(node)) {
+      const key = String(rawKey || "").toLowerCase();
+      if (wantedKeys.has(key)) {
+        if (key.includes("currency") && !found.currency) found.currency = String(value || "").trim();
+        if ((key === "name" || key === "title" || key.includes("product")) && !found.title) {
+          found.title = String(value || "").trim();
+        }
+        if (key.includes("description") && !found.description) found.description = String(value || "").trim();
+        if (key.includes("price") && !found.price) found.price = String(value || "").trim();
+        if (key.includes("image") && !found.image) {
+          if (Array.isArray(value)) found.image = String(value[0] || "").trim();
+          else found.image = String(value || "").trim();
+        }
+      }
+      walk(value, depth + 1);
+    }
+  };
+
+  walk(parsed, 0);
+
+  const normalizedPrice = normalizePreviewPrice(found.price, found.currency);
+  if (!found.title && !found.image && !normalizedPrice) return null;
+
+  return {
+    title: found.title,
+    description: found.description,
+    image: found.image,
+    price: normalizedPrice
+  };
+}
+
 async function fetchProductPreview(url) {
   const fallback = fallbackProductPreview(url);
 
   try {
     const response = await fetch(url, {
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(9000),
       headers: {
-        "user-agent": "Mozilla/5.0 AK Learning Hub Preview Fetcher"
-      }
+        "user-agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "accept-language": "en-US,en;q=0.9",
+        "cache-control": "no-cache",
+        pragma: "no-cache"
+      },
+      redirect: "follow"
     });
 
     if (!response.ok) {
@@ -412,35 +585,64 @@ async function fetchProductPreview(url) {
     }
 
     const html = await response.text();
+    const finalUrl = response.url || url;
+    const platform = parsePlatformFromUrl(finalUrl);
+
+    const nextData = extractNextDataProduct(html);
+    const jsonLd = extractJsonLdProduct(html);
+
     const title =
-      extractMetaContent(html, [
+      (jsonLd?.title ||
+        nextData?.title ||
+        extractMetaContent(html, [
         /<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i,
+        /<meta[^>]+property=["']twitter:title["'][^>]+content=["']([^"']+)["']/i,
         /<meta[^>]+name=["']title["'][^>]+content=["']([^"']+)["']/i,
         /<title>([^<]+)<\/title>/i
-      ]) || fallback.title;
+      ])) ||
+      fallback.title;
 
     const description =
-      extractMetaContent(html, [
+      (jsonLd?.description ||
+        nextData?.description ||
+        extractMetaContent(html, [
         /<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/i,
+        /<meta[^>]+property=["']twitter:description["'][^>]+content=["']([^"']+)["']/i,
         /<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i
-      ]) || fallback.description;
+      ])) ||
+      fallback.description;
 
-    const image = extractMetaContent(html, [
-      /<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i
-    ]);
+    const image =
+      jsonLd?.image ||
+      nextData?.image ||
+      extractMetaContent(html, [
+        /<meta[^>]+property=["']og:image:secure_url["'][^>]+content=["']([^"']+)["']/i,
+        /<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i,
+        /<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i,
+        /<meta[^>]+name=["']twitter:image:src["'][^>]+content=["']([^"']+)["']/i,
+        /<meta[^>]+itemprop=["']image["'][^>]+content=["']([^"']+)["']/i
+      ]);
 
-    const price =
+    const priceRaw =
+      jsonLd?.price ||
+      nextData?.price ||
       extractMetaContent(html, [
         /<meta[^>]+property=["']product:price:amount["'][^>]+content=["']([^"']+)["']/i,
-        /"price"\s*:\s*"([^"]+)"/i
-      ]) || fallback.price;
+        /<meta[^>]+property=["']product:price["'][^>]+content=["']([^"']+)["']/i,
+        /<meta[^>]+itemprop=["']price["'][^>]+content=["']([^"']+)["']/i,
+        /"price"\s*:\s*"([^"]+)"/i,
+        /"salePrice"\s*:\s*"([^"]+)"/i
+      ]);
+    const normalizedPrice = normalizePreviewPrice(priceRaw, "");
 
     return {
       ...fallback,
       title,
       description,
       image,
-      price: price.startsWith("$") ? price : `$${price}`
+      price: normalizedPrice || fallback.price,
+      platform,
+      url: finalUrl
     };
   } catch (error) {
     return fallback;
@@ -448,6 +650,11 @@ async function fetchProductPreview(url) {
 }
 
 app.use(express.json({ limit: "2mb" }));
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" }
+  })
+);
 app.use((req, res, next) => {
   const origin = req.headers.origin;
   if (origin) {
@@ -471,9 +678,29 @@ app.use((req, res, next) => {
   next();
 });
 
+const adminLoginRateLimit = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+const publicContactRateLimit = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  limit: 30,
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
 app.get("/api/public/bootstrap", async (req, res) => {
   const db = await readDb();
-  res.json(buildPublicPayload(db));
+  const payload = buildPublicPayload(db);
+  const classLevel = normalizeClassLevel(req.query.class);
+  if (classLevel) {
+    payload.questions = filterQuestionsByClass(payload.questions, classLevel);
+    payload.stats.totalQuestions = getQuestionCount({ ...db, questions: payload.questions });
+  }
+  res.json(payload);
 });
 
 app.post("/api/public/newsletter", async (req, res) => {
@@ -494,6 +721,36 @@ app.post("/api/public/newsletter", async (req, res) => {
   }
 
   res.json({ message: "Subscription saved successfully." });
+});
+
+app.post("/api/public/contact", publicContactRateLimit, async (req, res) => {
+  const db = await readDb();
+  const name = cleanText(req.body.name);
+  const email = cleanText(req.body.email).toLowerCase();
+  const message = cleanText(req.body.message);
+
+  if (!message || message.length < 5) {
+    return res.status(400).json({ message: "Please write a message (at least 5 characters)." });
+  }
+
+  if (message.length > 2000) {
+    return res.status(400).json({ message: "Message is too long." });
+  }
+
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ message: "Please enter a valid email address." });
+  }
+
+  db.contactMessages.push({
+    id: crypto.randomUUID(),
+    name: name ? name.slice(0, 80) : "",
+    email: email ? email.slice(0, 120) : "",
+    message,
+    createdAt: new Date().toISOString()
+  });
+
+  await writeDb(db);
+  res.json({ message: "Thanks. Your message has been received." });
 });
 
 app.post("/api/public/quiz-results", async (req, res) => {
@@ -528,7 +785,7 @@ app.post("/api/public/quiz-results", async (req, res) => {
   });
 });
 
-app.post("/api/admin/login", async (req, res) => {
+app.post("/api/admin/login", adminLoginRateLimit, async (req, res) => {
   cleanupExpiredTokens();
   const db = await readDb();
   const password = cleanText(req.body.password);
@@ -593,6 +850,7 @@ app.delete("/api/admin/subjects/:key", authMiddleware, async (req, res) => {
 app.post("/api/admin/questions", authMiddleware, async (req, res) => {
   const db = await readDb();
   const subject = cleanText(req.body.subject);
+  const classLevel = normalizeClassLevel(req.body.classLevel);
   const question = cleanText(req.body.question);
   const explanation = cleanText(req.body.explanation);
   const options = Array.isArray(req.body.options)
@@ -613,7 +871,8 @@ app.post("/api/admin/questions", authMiddleware, async (req, res) => {
     question,
     options,
     correct,
-    explanation
+    explanation,
+    ...(classLevel ? { classLevel } : {})
   });
 
   await writeDb(db);
@@ -636,6 +895,7 @@ app.put("/api/admin/questions/:id", authMiddleware, async (req, res) => {
 
   const question = cleanText(req.body.question);
   const explanation = cleanText(req.body.explanation);
+  const classLevel = normalizeClassLevel(req.body.classLevel);
   const options = Array.isArray(req.body.options)
     ? req.body.options.map((item) => cleanText(item)).filter(Boolean)
     : [];
@@ -645,13 +905,19 @@ app.put("/api/admin/questions/:id", authMiddleware, async (req, res) => {
     return res.status(400).json({ message: "Question and four options are required." });
   }
 
-  db.questions[subject][questionIndex] = {
+  const updatedQuestion = {
     ...db.questions[subject][questionIndex],
     question,
     options,
     correct,
     explanation
   };
+  if (classLevel) {
+    updatedQuestion.classLevel = classLevel;
+  } else {
+    delete updatedQuestion.classLevel;
+  }
+  db.questions[subject][questionIndex] = updatedQuestion;
 
   await writeDb(db);
   res.json({ message: "Question updated successfully." });
@@ -671,6 +937,31 @@ app.delete("/api/admin/questions/:id", authMiddleware, async (req, res) => {
   res.json({ message: "Question deleted successfully." });
 });
 
+app.delete("/api/admin/questions", authMiddleware, async (req, res) => {
+  const db = await readDb();
+  const subject = cleanText(req.query.subject);
+  const classLevel = normalizeClassLevel(req.query.classLevel);
+
+  if (!subject || !db.questions[subject]) {
+    return res.status(400).json({ message: "Valid subject is required." });
+  }
+
+  const beforeCount = db.questions[subject].length;
+  if (classLevel) {
+    db.questions[subject] = db.questions[subject].filter((item) => String(item.classLevel || "") !== classLevel);
+  } else {
+    db.questions[subject] = [];
+  }
+  const removed = Math.max(beforeCount - db.questions[subject].length, 0);
+  await writeDb(db);
+  res.json({
+    message: classLevel
+      ? `Removed ${removed} questions for Class ${classLevel}.`
+      : `Removed ${removed} questions successfully.`,
+    removed
+  });
+});
+
 app.post("/api/admin/questions/bulk", authMiddleware, async (req, res) => {
   const db = await readDb();
   const subject = cleanText(req.body.subject);
@@ -684,6 +975,7 @@ app.post("/api/admin/questions/bulk", authMiddleware, async (req, res) => {
   for (const item of incomingQuestions) {
     const question = cleanText(item.question);
     const explanation = cleanText(item.explanation);
+    const classLevel = normalizeClassLevel(item.classLevel);
     const options = Array.isArray(item.options) ? item.options.map((option) => cleanText(option)).filter(Boolean) : [];
     const correct = clampNumber(item.correct, 0, 3, 0);
 
@@ -693,7 +985,8 @@ app.post("/api/admin/questions/bulk", authMiddleware, async (req, res) => {
         question,
         options,
         correct,
-        explanation
+        explanation,
+        ...(classLevel ? { classLevel } : {})
       });
       added += 1;
     }
@@ -740,6 +1033,54 @@ app.post("/api/admin/product-preview", authMiddleware, async (req, res) => {
 
   const preview = await fetchProductPreview(url);
   res.json(preview);
+});
+
+app.post("/api/admin/products/auto-import", authMiddleware, async (req, res) => {
+  const db = await readDb();
+  const url = cleanText(req.body.url);
+  const requestedCategory = cleanText(req.body.category);
+
+  try {
+    new URL(url);
+  } catch (error) {
+    return res.status(400).json({ message: "Please enter a valid product URL." });
+  }
+
+  const preview = await fetchProductPreview(url);
+  const title = cleanText(preview.title);
+  const description = cleanText(preview.description);
+  const price = cleanText(preview.price);
+  const image = cleanText(preview.image);
+  const platform = cleanText(preview.platform) || parsePlatformFromUrl(preview.url || url);
+
+  const missing = [];
+  if (!title) missing.push("title");
+  if (!price || price === "$0.00") missing.push("price");
+  if (!image) missing.push("image");
+
+  if (missing.length) {
+    return res.status(422).json({
+      message: `Could not fetch ${missing.join(", ")} from this link. Try another link (full product page, not short redirect), or add manually.`,
+      missing
+    });
+  }
+
+  const category = requestedCategory && db.categories.includes(requestedCategory) ? requestedCategory : db.categories[0] || "general";
+
+  db.products.push({
+    id: crypto.randomUUID(),
+    title,
+    description: description || `Imported product from ${platform}.`,
+    price,
+    rating: 4.5,
+    category,
+    platform,
+    url: preview.url || url,
+    image
+  });
+
+  await writeDb(db);
+  res.json({ message: "Product imported successfully." });
 });
 
 app.post("/api/admin/products", authMiddleware, async (req, res) => {
