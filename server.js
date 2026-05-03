@@ -282,7 +282,7 @@ function filterQuestionsByClass(questionsBySubject, classLevel) {
   const filtered = {};
   for (const [subjectKey, list] of Object.entries(questionsBySubject || {})) {
     filtered[subjectKey] = Array.isArray(list)
-      ? list.filter((question) => !question?.classLevel || String(question.classLevel) === normalizedClass)
+      ? list.filter((question) => String(question?.classLevel || "") === normalizedClass)
       : [];
   }
   return filtered;
