@@ -146,16 +146,23 @@ async function ensureDatabaseStore() {
     return;
   }
 
-  await pgPool.query(
-    "CREATE TABLE IF NOT EXISTS ak_kv (key text PRIMARY KEY, value jsonb NOT NULL, updated_at timestamptz NOT NULL DEFAULT NOW())"
-  );
-
-  const existing = await pgPool.query("SELECT 1 FROM ak_kv WHERE key = $1 LIMIT 1", ["db"]);
-  if (existing.rowCount === 0) {
+  try {
     await pgPool.query(
-      "INSERT INTO ak_kv(key, value, updated_at) VALUES ($1, $2, NOW())",
-      ["db", createDefaultDatabase()]
+      "CREATE TABLE IF NOT EXISTS ak_kv (key text PRIMARY KEY, value jsonb NOT NULL, updated_at timestamptz NOT NULL DEFAULT NOW())"
     );
+
+    const existing = await pgPool.query("SELECT 1 FROM ak_kv WHERE key = $1 LIMIT 1", ["db"]);
+    if (existing.rowCount === 0) {
+      await pgPool.query(
+        "INSERT INTO ak_kv(key, value, updated_at) VALUES ($1, $2, NOW())",
+        ["db", createDefaultDatabase()]
+      );
+    }
+  } catch (error) {
+    console.error("Postgres unavailable. Falling back to local JSON database.");
+    console.error(error);
+    pgPool = null;
+    ensureDatabaseFile();
   }
 }
 
@@ -168,6 +175,12 @@ async function readDb() {
   }
 
   await ensureDatabaseStore();
+  if (!pgPool) {
+    ensureDatabaseFile();
+    const raw = fs.readFileSync(DB_PATH, "utf8");
+    const parsed = JSON.parse(raw || "{}");
+    return normalizeDb(parsed);
+  }
   const result = await pgPool.query("SELECT value FROM ak_kv WHERE key = $1 LIMIT 1", ["db"]);
   const stored = result.rows?.[0]?.value || {};
   return normalizeDb(stored);
@@ -183,6 +196,11 @@ async function writeDb(data) {
   }
 
   await ensureDatabaseStore();
+  if (!pgPool) {
+    ensureDatabaseFile();
+    fs.writeFileSync(DB_PATH, JSON.stringify(normalized, null, 2));
+    return;
+  }
   await pgPool.query(
     "INSERT INTO ak_kv(key, value, updated_at) VALUES ($1, $2, NOW()) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = EXCLUDED.updated_at",
     ["db", normalized]
@@ -379,273 +397,6 @@ function cleanupExpiredTokens() {
     if (!expiresAt || expiresAt < now) {
       authTokens.delete(token);
     }
-  }
-}
-
-function parsePlatformFromUrl(url) {
-  const value = String(url || "").toLowerCase();
-  if (value.includes("temu") || value.includes("temu.com") || value.includes("temu.to") || value.includes("share.temu")) return "Temu";
-  if (value.includes("amazon.")) return "Amazon";
-  if (value.includes("daraz")) return "Daraz";
-  if (value.includes("aliexpress")) return "AliExpress";
-  return "Website";
-}
-
-function fallbackProductPreview(url) {
-  let title = "Online Product";
-  try {
-    const parsedUrl = new URL(url);
-    const pathParts = parsedUrl.pathname.split("/").filter(Boolean);
-    const candidate = pathParts.reverse().find((part) => /[a-z]/i.test(part));
-    if (candidate) {
-      title = toTitleFromSlug(candidate.replace(/\.[a-z0-9]+$/i, ""));
-    }
-  } catch (error) {
-    title = "Online Product";
-  }
-
-  const platform = parsePlatformFromUrl(url);
-  return {
-    title,
-    description: `Imported product preview from ${platform}. Review the details before adding it to the store.`,
-    price: "$0.00",
-    platform,
-    rating: 4.0,
-    url
-  };
-}
-
-function extractMetaContent(html, patterns) {
-  for (const pattern of patterns) {
-    const match = html.match(pattern);
-    if (match?.[1]) {
-      return match[1].replace(/\s+/g, " ").trim();
-    }
-  }
-  return "";
-}
-
-function safeJsonParse(value) {
-  try {
-    return JSON.parse(value);
-  } catch (error) {
-    return null;
-  }
-}
-
-function normalizePreviewPrice(rawPrice, currency) {
-  const trimmed = String(rawPrice || "").trim();
-  if (!trimmed) return "";
-  if (/[$€£]|(usd|eur|gbp|pkr|inr|aed|sar|cad|aud)/i.test(trimmed)) return trimmed;
-  if (!/^\d+(\.\d+)?$/.test(trimmed)) return trimmed;
-  const curr = String(currency || "").trim().toUpperCase();
-  if (curr && curr !== "USD") return `${curr} ${trimmed}`;
-  return `$${trimmed}`;
-}
-
-function extractJsonLdProduct(html) {
-  const scriptRegex = /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
-  const candidates = [];
-  let match;
-
-  while ((match = scriptRegex.exec(html))) {
-    const raw = String(match[1] || "").trim();
-    if (!raw) continue;
-    const parsed = safeJsonParse(raw);
-    if (!parsed) continue;
-    candidates.push(parsed);
-  }
-
-  const flat = [];
-  const pushNode = (node) => {
-    if (!node) return;
-    if (Array.isArray(node)) {
-      for (const item of node) pushNode(item);
-      return;
-    }
-    if (typeof node !== "object") return;
-    flat.push(node);
-    if (Array.isArray(node["@graph"])) pushNode(node["@graph"]);
-  };
-
-  for (const item of candidates) pushNode(item);
-
-  const isProduct = (node) => {
-    const type = node?.["@type"];
-    if (!type) return false;
-    if (Array.isArray(type)) return type.some((t) => String(t).toLowerCase() === "product");
-    return String(type).toLowerCase() === "product";
-  };
-
-  const product = flat.find(isProduct) || null;
-  if (!product) return null;
-
-  const offers = Array.isArray(product.offers) ? product.offers[0] : product.offers;
-  const price = offers?.price ?? offers?.lowPrice ?? offers?.highPrice ?? "";
-  const currency = offers?.priceCurrency ?? "";
-  const image = Array.isArray(product.image) ? product.image[0] : product.image;
-
-  return {
-    title: String(product.name || "").trim(),
-    description: String(product.description || "").trim(),
-    image: String(image || "").trim(),
-    price: normalizePreviewPrice(price, currency)
-  };
-}
-
-function extractNextDataProduct(html) {
-  const match = html.match(/<script[^>]+id=["']__NEXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/i);
-  if (!match?.[1]) return null;
-  const parsed = safeJsonParse(match[1].trim());
-  if (!parsed) return null;
-
-  const wantedKeys = new Set([
-    "name",
-    "title",
-    "producttitle",
-    "productname",
-    "description",
-    "shortdescription",
-    "image",
-    "images",
-    "mainimage",
-    "primaryimage",
-    "saleprice",
-    "price",
-    "minprice",
-    "maxprice",
-    "currency",
-    "pricecurrency"
-  ]);
-
-  const found = { title: "", description: "", image: "", price: "", currency: "" };
-  const visited = new Set();
-
-  const walk = (node, depth) => {
-    if (!node || depth > 10) return;
-    if (typeof node !== "object") return;
-    if (visited.has(node)) return;
-    visited.add(node);
-
-    if (Array.isArray(node)) {
-      for (const item of node) walk(item, depth + 1);
-      return;
-    }
-
-    for (const [rawKey, value] of Object.entries(node)) {
-      const key = String(rawKey || "").toLowerCase();
-      if (wantedKeys.has(key)) {
-        if (key.includes("currency") && !found.currency) found.currency = String(value || "").trim();
-        if ((key === "name" || key === "title" || key.includes("product")) && !found.title) {
-          found.title = String(value || "").trim();
-        }
-        if (key.includes("description") && !found.description) found.description = String(value || "").trim();
-        if (key.includes("price") && !found.price) found.price = String(value || "").trim();
-        if (key.includes("image") && !found.image) {
-          if (Array.isArray(value)) found.image = String(value[0] || "").trim();
-          else found.image = String(value || "").trim();
-        }
-      }
-      walk(value, depth + 1);
-    }
-  };
-
-  walk(parsed, 0);
-
-  const normalizedPrice = normalizePreviewPrice(found.price, found.currency);
-  if (!found.title && !found.image && !normalizedPrice) return null;
-
-  return {
-    title: found.title,
-    description: found.description,
-    image: found.image,
-    price: normalizedPrice
-  };
-}
-
-async function fetchProductPreview(url) {
-  const fallback = fallbackProductPreview(url);
-
-  try {
-    const response = await fetch(url, {
-      signal: AbortSignal.timeout(9000),
-      headers: {
-        "user-agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-        accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "accept-language": "en-US,en;q=0.9",
-        "cache-control": "no-cache",
-        pragma: "no-cache"
-      },
-      redirect: "follow"
-    });
-
-    if (!response.ok) {
-      return fallback;
-    }
-
-    const html = await response.text();
-    const finalUrl = response.url || url;
-    const platform = parsePlatformFromUrl(finalUrl);
-
-    const nextData = extractNextDataProduct(html);
-    const jsonLd = extractJsonLdProduct(html);
-
-    const title =
-      (jsonLd?.title ||
-        nextData?.title ||
-        extractMetaContent(html, [
-        /<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i,
-        /<meta[^>]+property=["']twitter:title["'][^>]+content=["']([^"']+)["']/i,
-        /<meta[^>]+name=["']title["'][^>]+content=["']([^"']+)["']/i,
-        /<title>([^<]+)<\/title>/i
-      ])) ||
-      fallback.title;
-
-    const description =
-      (jsonLd?.description ||
-        nextData?.description ||
-        extractMetaContent(html, [
-        /<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/i,
-        /<meta[^>]+property=["']twitter:description["'][^>]+content=["']([^"']+)["']/i,
-        /<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i
-      ])) ||
-      fallback.description;
-
-    const image =
-      jsonLd?.image ||
-      nextData?.image ||
-      extractMetaContent(html, [
-        /<meta[^>]+property=["']og:image:secure_url["'][^>]+content=["']([^"']+)["']/i,
-        /<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i,
-        /<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i,
-        /<meta[^>]+name=["']twitter:image:src["'][^>]+content=["']([^"']+)["']/i,
-        /<meta[^>]+itemprop=["']image["'][^>]+content=["']([^"']+)["']/i
-      ]);
-
-    const priceRaw =
-      jsonLd?.price ||
-      nextData?.price ||
-      extractMetaContent(html, [
-        /<meta[^>]+property=["']product:price:amount["'][^>]+content=["']([^"']+)["']/i,
-        /<meta[^>]+property=["']product:price["'][^>]+content=["']([^"']+)["']/i,
-        /<meta[^>]+itemprop=["']price["'][^>]+content=["']([^"']+)["']/i,
-        /"price"\s*:\s*"([^"]+)"/i,
-        /"salePrice"\s*:\s*"([^"]+)"/i
-      ]);
-    const normalizedPrice = normalizePreviewPrice(priceRaw, "");
-
-    return {
-      ...fallback,
-      title,
-      description,
-      image,
-      price: normalizedPrice || fallback.price,
-      platform,
-      url: finalUrl
-    };
-  } catch (error) {
-    return fallback;
   }
 }
 
@@ -1020,67 +771,6 @@ app.delete("/api/admin/categories/:name", authMiddleware, async (req, res) => {
   db.categories = db.categories.filter((item) => item !== category);
   await writeDb(db);
   res.json({ message: "Category removed successfully." });
-});
-
-app.post("/api/admin/product-preview", authMiddleware, async (req, res) => {
-  const url = cleanText(req.body.url);
-
-  try {
-    new URL(url);
-  } catch (error) {
-    return res.status(400).json({ message: "Please enter a valid product URL." });
-  }
-
-  const preview = await fetchProductPreview(url);
-  res.json(preview);
-});
-
-app.post("/api/admin/products/auto-import", authMiddleware, async (req, res) => {
-  const db = await readDb();
-  const url = cleanText(req.body.url);
-  const requestedCategory = cleanText(req.body.category);
-
-  try {
-    new URL(url);
-  } catch (error) {
-    return res.status(400).json({ message: "Please enter a valid product URL." });
-  }
-
-  const preview = await fetchProductPreview(url);
-  const title = cleanText(preview.title);
-  const description = cleanText(preview.description);
-  const price = cleanText(preview.price);
-  const image = cleanText(preview.image);
-  const platform = cleanText(preview.platform) || parsePlatformFromUrl(preview.url || url);
-
-  const missing = [];
-  if (!title) missing.push("title");
-  if (!price || price === "$0.00") missing.push("price");
-  if (!image) missing.push("image");
-
-  if (missing.length) {
-    return res.status(422).json({
-      message: `Could not fetch ${missing.join(", ")} from this link. Try another link (full product page, not short redirect), or add manually.`,
-      missing
-    });
-  }
-
-  const category = requestedCategory && db.categories.includes(requestedCategory) ? requestedCategory : db.categories[0] || "general";
-
-  db.products.push({
-    id: crypto.randomUUID(),
-    title,
-    description: description || `Imported product from ${platform}.`,
-    price,
-    rating: 4.5,
-    category,
-    platform,
-    url: preview.url || url,
-    image
-  });
-
-  await writeDb(db);
-  res.json({ message: "Product imported successfully." });
 });
 
 app.post("/api/admin/products", authMiddleware, async (req, res) => {

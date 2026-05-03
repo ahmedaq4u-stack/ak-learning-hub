@@ -99,95 +99,6 @@ function toTitleFromSlug(slug) {
     .join(" ");
 }
 
-function parsePlatformFromUrl(url) {
-  const value = String(url || "").toLowerCase();
-  if (value.includes("temu.com")) return "Temu";
-  if (value.includes("amazon.")) return "Amazon";
-  if (value.includes("daraz")) return "Daraz";
-  if (value.includes("aliexpress")) return "AliExpress";
-  return "Website";
-}
-
-function fallbackProductPreview(url) {
-  let title = "Online Product";
-  try {
-    const parsedUrl = new URL(url);
-    const pathParts = parsedUrl.pathname.split("/").filter(Boolean);
-    const candidate = pathParts.reverse().find((part) => /[a-z]/i.test(part));
-    if (candidate) {
-      title = toTitleFromSlug(candidate.replace(/\.[a-z0-9]+$/i, ""));
-    }
-  } catch (error) {
-    title = "Online Product";
-  }
-
-  const platform = parsePlatformFromUrl(url);
-  return {
-    title,
-    description: `Imported product preview from ${platform}. Review the details before adding it to the store.`,
-    price: "$0.00",
-    platform,
-    rating: 4.0,
-    url
-  };
-}
-
-function extractMetaContent(html, patterns) {
-  for (const pattern of patterns) {
-    const match = html.match(pattern);
-    if (match?.[1]) {
-      return match[1].replace(/\s+/g, " ").trim();
-    }
-  }
-  return "";
-}
-
-async function fetchProductPreview(url) {
-  const fallback = fallbackProductPreview(url);
-  try {
-    const response = await fetch(url, {
-      signal: AbortSignal.timeout(5000),
-      headers: {
-        "user-agent": "Mozilla/5.0 AK Learning Hub Preview Fetcher"
-      }
-    });
-
-    if (!response.ok) return fallback;
-
-    const html = await response.text();
-    const title =
-      extractMetaContent(html, [
-        /<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i,
-        /<meta[^>]+name=["']title["'][^>]+content=["']([^"']+)["']/i,
-        /<title>([^<]+)<\/title>/i
-      ]) || fallback.title;
-
-    const description =
-      extractMetaContent(html, [
-        /<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/i,
-        /<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i
-      ]) || fallback.description;
-
-    const image = extractMetaContent(html, [/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i]);
-
-    const price =
-      extractMetaContent(html, [
-        /<meta[^>]+property=["']product:price:amount["'][^>]+content=["']([^"']+)["']/i,
-        /"price"\s*:\s*"([^"]+)"/i
-      ]) || fallback.price;
-
-    return {
-      ...fallback,
-      title,
-      description,
-      image,
-      price: price.startsWith("$") ? price : `$${price}`
-    };
-  } catch (error) {
-    return fallback;
-  }
-}
-
 function createDefaultDatabase() {
   return {
     adminPassword: process.env.ADMIN_PASSWORD || "ejaz4u123",
@@ -704,17 +615,6 @@ app.delete("/api/admin/categories/:name", authMiddleware, async (req, res) => {
     return db;
   });
   res.json({ message: "Category removed successfully." });
-});
-
-app.post("/api/admin/product-preview", authMiddleware, async (req, res) => {
-  const url = cleanText(req.body.url);
-  try {
-    new URL(url);
-  } catch (error) {
-    return res.status(400).json({ message: "Please enter a valid product URL." });
-  }
-  const preview = await fetchProductPreview(url);
-  res.json(preview);
 });
 
 app.post("/api/admin/products", authMiddleware, async (req, res) => {

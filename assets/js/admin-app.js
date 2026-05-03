@@ -4,8 +4,9 @@ function normalizeApiBase(value) {
   return trimmed.endsWith("/") ? trimmed.slice(0, -1) : trimmed;
 }
 
-const API_ORIGIN = normalizeApiBase(window.AK_API_BASE);
-const API_BASE = API_ORIGIN ? `${API_ORIGIN}/api` : "/api";
+const API_BASE_OVERRIDE_KEY = "ak_api_base_override";
+let API_ORIGIN = normalizeApiBase(localStorage.getItem(API_BASE_OVERRIDE_KEY) || window.AK_API_BASE);
+let API_BASE = API_ORIGIN ? `${API_ORIGIN}/api` : "/api";
 const ADMIN_TOKEN_KEY = "ak_admin_token";
 
 let authToken = sessionStorage.getItem(ADMIN_TOKEN_KEY) || "";
@@ -14,7 +15,6 @@ let quizDatabase = {};
 let productsList = [];
 let categories = [];
 let settings = { maintenanceMode: false, voiceReading: true, defaultTimer: 30 };
-let fetchedProductData = null;
 let editingQuestionId = null;
 let editingProductId = null;
 let pendingDelete = { type: null, id: null, subject: null };
@@ -32,20 +32,40 @@ function apiFetch(url, options = {}) {
   return fetch(url, {
     ...options,
     headers
-  }).then(async (response) => {
-    const contentType = response.headers.get("content-type") || "";
-    const payload = contentType.includes("application/json") ? await response.json() : await response.text();
+  })
+    .catch((error) => {
+      if (!window.__ak_backend_prompted) {
+        window.__ak_backend_prompted = true;
+        const current = API_ORIGIN || "";
+        const entered = window.prompt(
+          "Backend is not reachable. Paste your Railway backend domain (example: https://xxxx.up.railway.app).",
+          current
+        );
+        const normalized = normalizeApiBase(entered);
+        if (normalized) {
+          localStorage.setItem(API_BASE_OVERRIDE_KEY, normalized);
+          window.location.reload();
+          return new Promise(() => {});
+        }
+      }
 
-    if (!response.ok) {
-      const message = typeof payload === "string" ? payload : payload.message || "Request failed.";
-      const error = new Error(message);
-      error.status = response.status;
-      error.payload = payload;
-      throw error;
-    }
+      const backend = API_ORIGIN || "your backend domain";
+      throw new Error(`Backend not reachable. Check Railway backend is running and backend URL is correct (${backend}).`);
+    })
+    .then(async (response) => {
+      const contentType = response.headers.get("content-type") || "";
+      const payload = contentType.includes("application/json") ? await response.json() : await response.text();
 
-    return payload;
-  });
+      if (!response.ok) {
+        const message = typeof payload === "string" ? payload : payload.message || "Request failed.";
+        const error = new Error(message);
+        error.status = response.status;
+        error.payload = payload;
+        throw error;
+      }
+
+      return payload;
+    });
 }
 
 function showAlert(message, type = "success", autoHide = true) {
@@ -187,23 +207,13 @@ function refreshCategoryList() {
 }
 
 function refreshCategoryDropdown(selectedCategory) {
-  const selects = [
-    document.getElementById("productCategory"),
-    document.getElementById("autoFetchCategory"),
-    document.getElementById("previewCategory")
-  ].filter(Boolean);
+  const select = document.getElementById("productCategory");
+  if (!select) return;
 
-  if (!selects.length) return;
-
-  const html = (categories || []).map((category) => `<option value="${escapeHtml(category)}">${escapeHtml(category)}</option>`).join("");
-  for (const select of selects) {
-    select.innerHTML = html;
-  }
+  select.innerHTML = (categories || []).map((category) => `<option value="${escapeHtml(category)}">${escapeHtml(category)}</option>`).join("");
 
   if (selectedCategory && categories.includes(selectedCategory)) {
-    for (const select of selects) {
-      select.value = selectedCategory;
-    }
+    select.value = selectedCategory;
   }
 }
 
@@ -929,94 +939,6 @@ function parseOptionsFromText(text) {
   return options.length === 4 ? ["A", "B", "C", "D"].map((k) => map[k]) : [];
 }
 
-async function fetchProductPreviewFromUrl() {
-  const url = document.getElementById("productUrl").value.trim();
-  if (!url) {
-    showAlert("Please enter a product URL.", "danger");
-    return;
-  }
-
-  const button = document.getElementById("fetchProductBtn");
-  const originalHtml = button.innerHTML;
-  button.disabled = true;
-  button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Fetching...';
-
-  try {
-    fetchedProductData = await apiFetch(`${API_BASE}/admin/product-preview`, {
-      method: "POST",
-      body: JSON.stringify({ url })
-    });
-
-    const previewImage = document.getElementById("previewImage");
-    if (previewImage) {
-      const imageUrl = String(fetchedProductData.image || "").trim();
-      if (imageUrl) {
-        previewImage.src = imageUrl;
-        previewImage.style.display = "inline-block";
-      } else {
-        previewImage.src = "";
-        previewImage.style.display = "none";
-      }
-    }
-
-    document.getElementById("previewTitle").innerText = fetchedProductData.title || "-";
-    document.getElementById("previewDesc").innerText = fetchedProductData.description || "-";
-    document.getElementById("previewPrice").innerText = fetchedProductData.price || "-";
-    document.getElementById("previewPlatform").innerText = fetchedProductData.platform || "-";
-
-    const previewCategory = document.getElementById("previewCategory");
-    if (previewCategory) {
-      const currentCategory = document.getElementById("autoFetchCategory")?.value || document.getElementById("productCategory")?.value || categories[0] || "general";
-      refreshCategoryDropdown(currentCategory);
-      if (currentCategory) {
-        previewCategory.value = currentCategory;
-      }
-    }
-
-    document.getElementById("fetchPreview").classList.add("show");
-    showAlert("Product preview loaded.", "success");
-  } catch (error) {
-    showAlert(error.message, "danger");
-  } finally {
-    button.disabled = false;
-    button.innerHTML = originalHtml;
-  }
-}
-
-async function fetchAndAddProductFromUrl() {
-  const url = document.getElementById("productUrl").value.trim();
-  if (!url) {
-    showAlert("Please enter a product URL.", "danger");
-    return;
-  }
-
-  const category = document.getElementById("autoFetchCategory")?.value || document.getElementById("productCategory")?.value || "";
-  const button = document.getElementById("fetchAndAddProductBtn");
-  const originalHtml = button?.innerHTML;
-  if (button) {
-    button.disabled = true;
-    button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Fetching...';
-  }
-
-  try {
-    const payload = await apiFetch(`${API_BASE}/admin/products/auto-import`, {
-      method: "POST",
-      body: JSON.stringify({ url, category })
-    });
-    await loadAdminData();
-    document.getElementById("fetchPreview")?.classList.remove("show");
-    fetchedProductData = null;
-    showAlert(payload.message || "Product imported.", "success");
-  } catch (error) {
-    showAlert(error.message, "danger");
-  } finally {
-    if (button) {
-      button.disabled = false;
-      button.innerHTML = originalHtml;
-    }
-  }
-}
-
 async function submitProduct(payload) {
   const url = editingProductId
     ? `${API_BASE}/admin/products/${encodeURIComponent(editingProductId)}`
@@ -1027,31 +949,6 @@ async function submitProduct(payload) {
     method,
     body: JSON.stringify(payload)
   });
-}
-
-async function confirmFetchedProduct() {
-  if (!fetchedProductData) return;
-
-  try {
-    const previewCategory = document.getElementById("previewCategory")?.value || "";
-    const selectedCategory = previewCategory || document.getElementById("productCategory")?.value || categories[0] || "general";
-    await submitProduct({
-      title: fetchedProductData.title,
-      description: fetchedProductData.description,
-      price: fetchedProductData.price,
-      rating: fetchedProductData.rating || 4,
-      category: selectedCategory,
-      platform: fetchedProductData.platform,
-      url: fetchedProductData.url,
-      image: fetchedProductData.image || ""
-    });
-    document.getElementById("fetchPreview").classList.remove("show");
-    fetchedProductData = null;
-    await loadAdminData();
-    showAlert("Product added successfully.", "success");
-  } catch (error) {
-    showAlert(error.message, "danger");
-  }
 }
 
 async function submitManualProduct() {
@@ -1195,49 +1092,48 @@ function addAnimatedParticles() {
 }
 
 function bindEvents() {
-  document.getElementById("submitPasswordBtn").addEventListener("click", handleLogin);
-  document.getElementById("cancelPasswordBtn").addEventListener("click", () => {
+  const on = (id, eventName, handler) => {
+    const element = document.getElementById(id);
+    if (!element) return;
+    element.addEventListener(eventName, handler);
+  };
+
+  on("submitPasswordBtn", "click", handleLogin);
+  on("cancelPasswordBtn", "click", () => {
     window.location.href = "index.html";
   });
-  document.getElementById("adminPasswordInput").addEventListener("keypress", (event) => {
+  on("adminPasswordInput", "keypress", (event) => {
     if (event.key === "Enter") {
       handleLogin();
     }
   });
 
-  document.getElementById("addSubjectBtn").addEventListener("click", addSubject);
-  document.getElementById("addCategoryBtn").addEventListener("click", addCategory);
-  document.getElementById("subjectSelect").addEventListener("change", refreshQuestionList);
-  document.getElementById("classSelectAdmin").addEventListener("change", refreshQuestionList);
-  document.getElementById("clearQuestionsBtn").addEventListener("click", clearQuestionsForSubject);
-  document.getElementById("addQuestionBtn").addEventListener("click", submitQuestion);
-  document.getElementById("previewBulkBtn").addEventListener("click", previewBulkQuestions);
-  document.getElementById("addBulkBtn").addEventListener("click", addBulkQuestions);
-  document.getElementById("clearBulkBtn").addEventListener("click", clearBulkQuestions);
-  document.getElementById("selectBulkFileBtn").addEventListener("click", () => {
-    document.getElementById("bulkFileInput").click();
+  on("addSubjectBtn", "click", addSubject);
+  on("addCategoryBtn", "click", addCategory);
+  on("subjectSelect", "change", refreshQuestionList);
+  on("classSelectAdmin", "change", refreshQuestionList);
+  on("clearQuestionsBtn", "click", clearQuestionsForSubject);
+  on("addQuestionBtn", "click", submitQuestion);
+  on("previewBulkBtn", "click", previewBulkQuestions);
+  on("addBulkBtn", "click", addBulkQuestions);
+  on("clearBulkBtn", "click", clearBulkQuestions);
+  on("selectBulkFileBtn", "click", () => {
+    document.getElementById("bulkFileInput")?.click();
   });
-  document.getElementById("bulkFileInput").addEventListener("change", (event) => {
+  on("bulkFileInput", "change", (event) => {
     handleBulkFileUpload(event.target.files?.[0]);
     event.target.value = "";
   });
-  document.getElementById("fetchProductBtn").addEventListener("click", fetchProductPreviewFromUrl);
-  document.getElementById("fetchAndAddProductBtn").addEventListener("click", fetchAndAddProductFromUrl);
-  document.getElementById("confirmAddProductBtn").addEventListener("click", confirmFetchedProduct);
-  document.getElementById("cancelPreviewBtn").addEventListener("click", () => {
-    fetchedProductData = null;
-    document.getElementById("fetchPreview").classList.remove("show");
-  });
-  document.getElementById("addProductBtn").addEventListener("click", submitManualProduct);
-  document.getElementById("confirmDeleteBtn").addEventListener("click", executeDelete);
-  document.getElementById("saveSettingsBtn").addEventListener("click", saveSettings);
-  document.getElementById("exportQuestionsBtn").addEventListener("click", () => {
+  on("addProductBtn", "click", submitManualProduct);
+  on("confirmDeleteBtn", "click", executeDelete);
+  on("saveSettingsBtn", "click", saveSettings);
+  on("exportQuestionsBtn", "click", () => {
     exportData("questions", "ak_questions_export");
   });
-  document.getElementById("exportProductsBtn").addEventListener("click", () => {
+  on("exportProductsBtn", "click", () => {
     exportData("products", "ak_products_export");
   });
-  document.getElementById("resetDataBtn").addEventListener("click", resetData);
+  on("resetDataBtn", "click", resetData);
 }
 
 window.editQuestion = editQuestion;

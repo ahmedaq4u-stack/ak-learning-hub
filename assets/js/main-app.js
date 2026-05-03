@@ -4,10 +4,13 @@ function normalizeApiBase(value) {
   return trimmed.endsWith("/") ? trimmed.slice(0, -1) : trimmed;
 }
 
-const API_ORIGIN = normalizeApiBase(window.AK_API_BASE);
+const API_BASE_OVERRIDE_KEY = "ak_api_base_override";
+const API_ORIGIN = normalizeApiBase(localStorage.getItem(API_BASE_OVERRIDE_KEY) || window.AK_API_BASE);
 const PUBLIC_API_BASE = API_ORIGIN ? `${API_ORIGIN}/api/public` : "/api/public";
 const PROFILE_STORAGE_KEY = "ak_learner_profile";
 const VOICE_STORAGE_KEY = "ak_voice_enabled";
+const CLASS_STORAGE_KEY = "ak_learner_class";
+const ROUND_SIZE = 20;
 
 let publicData = {
   subjects: [],
@@ -33,6 +36,42 @@ let quizTimer = null;
 let speechSynthesisAvailable = "speechSynthesis" in window;
 let voiceEnabled = localStorage.getItem(VOICE_STORAGE_KEY);
 voiceEnabled = voiceEnabled === null ? true : voiceEnabled === "true";
+let pendingClassSubjectKey = "";
+
+function getStoredClass() {
+  const value = String(localStorage.getItem(CLASS_STORAGE_KEY) || "").trim();
+  return /^(6|7|8|9|10)$/.test(value) ? value : "";
+}
+
+function openClassModal(subjectKey) {
+  pendingClassSubjectKey = String(subjectKey || "");
+  const backdrop = document.getElementById("classBackdrop");
+  const select = document.getElementById("classSelect");
+  if (select) {
+    select.value = getStoredClass() || "";
+    select.focus();
+  }
+  if (backdrop) {
+    backdrop.classList.add("active");
+    backdrop.setAttribute("aria-hidden", "false");
+  }
+}
+
+function closeClassModal() {
+  const backdrop = document.getElementById("classBackdrop");
+  if (backdrop) {
+    backdrop.classList.remove("active");
+    backdrop.setAttribute("aria-hidden", "true");
+  }
+  pendingClassSubjectKey = "";
+}
+
+function ensureClassSelected(subjectKey) {
+  const selected = getStoredClass();
+  if (selected) return true;
+  openClassModal(subjectKey);
+  return false;
+}
 
 function apiGet(url) {
   return fetch(url).then(async (response) => {
@@ -152,8 +191,7 @@ function updateProfileUi() {
 
   const logoutBtn = document.getElementById("logoutBtn");
   if (logoutBtn) {
-    const signedIn = Boolean(getFirebaseUser());
-    logoutBtn.innerHTML = signedIn ? '<i class="fas fa-sign-out-alt"></i> Logout' : '<i class="fas fa-user"></i> Sign In';
+    logoutBtn.innerHTML = '<i class="fas fa-sign-out-alt"></i> Exit';
   }
 }
 
@@ -166,6 +204,7 @@ function getAuthElements() {
     name: document.getElementById("authName"),
     email: document.getElementById("authEmail"),
     password: document.getElementById("authPassword"),
+    forgotPasswordBtn: document.getElementById("forgotPasswordBtn"),
     switchBtn: document.getElementById("authSwitchBtn"),
     submitBtn: document.getElementById("authSubmitBtn"),
     error: document.getElementById("authError")
@@ -223,9 +262,7 @@ function closeAuthModal() {
 }
 
 function requireAuth(action) {
-  if (getFirebaseUser()) return true;
-  openAuthModal("signin", action);
-  return false;
+  return true;
 }
 
 function resizeCanvas() {
@@ -305,13 +342,17 @@ function renderQuizCards(containerId) {
         <div class="quiz-card" onclick="startQuiz('${subject.key}')">
           <div class="quiz-card-inner">
             <div class="quiz-card-front">
-              <i class="fas ${subject.icon}" style="color:${subject.color}"></i>
+              <div class="subject-icon-badge">
+                <i class="fas ${subject.icon}" style="color:${subject.color}"></i>
+              </div>
               <h3>${escapeHtml(subject.name)}</h3>
               <p>${count} Questions</p>
+              <div class="subject-pill"><i class="fas fa-sparkles"></i> Explore</div>
             </div>
             <div class="quiz-card-back">
               <i class="fas fa-play-circle" style="font-size:2rem"></i>
               <h3>Start Quiz</h3>
+              <p>Practice now and boost your score</p>
               <button>Begin</button>
             </div>
           </div>
@@ -319,6 +360,29 @@ function renderQuizCards(containerId) {
       `;
     })
     .join("");
+}
+
+function renderFooterSubjects() {
+  const list = document.getElementById("footerSubjectsList");
+  if (!list) return;
+
+  const subjects = Array.isArray(publicData.subjects) ? publicData.subjects : [];
+  if (!subjects.length) {
+    list.innerHTML = "<li>No subjects yet</li>";
+    return;
+  }
+
+  list.innerHTML = subjects
+    .slice(0, 10)
+    .map((subject) => `<li><a href="#" class="footer-subject-link" data-subject="${escapeHtml(subject.key)}">${escapeHtml(subject.name)}</a></li>`)
+    .join("");
+
+  list.querySelectorAll(".footer-subject-link").forEach((link) => {
+    link.addEventListener("click", (event) => {
+      event.preventDefault();
+      showPage("quizzes");
+    });
+  });
 }
 
 function renderProducts(category = "all") {
@@ -359,14 +423,29 @@ function renderProducts(category = "all") {
     .join("");
 }
 
+function formatCategoryLabel(category) {
+  return String(category || "")
+    .trim()
+    .replace(/[-_]+/g, " ")
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
 function setupCategories() {
   const container = document.getElementById("categoryFilters");
   if (!container) return;
 
-  const categoryList = [...new Set(publicData.products.map((product) => product.category))];
+  const categoryList =
+    Array.isArray(publicData.categories) && publicData.categories.length
+      ? publicData.categories.filter(Boolean)
+      : [...new Set(publicData.products.map((product) => product.category).filter(Boolean))];
   container.innerHTML = [
     '<button class="category-btn active" data-cat="all">All Products</button>',
-    ...categoryList.map((category) => `<button class="category-btn" data-cat="${category}">${escapeHtml(category)}</button>`)
+    ...categoryList.map(
+      (category) => `<button class="category-btn" data-cat="${category}">${escapeHtml(formatCategoryLabel(category))}</button>`
+    )
   ].join("");
 
   document.querySelectorAll(".category-btn").forEach((button) => {
@@ -496,16 +575,35 @@ function startQuizInternal(subjectKey) {
     return;
   }
 
-  const questions = publicData.questions[subjectKey] || [];
-  if (!questions.length) {
-    showMessage("No questions are available for this subject yet.");
+  const classLevel = getStoredClass();
+  if (!classLevel) {
+    showMessage("Please select your class (6 to 10) to continue.");
     return;
   }
+
+  const rawQuestions = publicData.questions[subjectKey] || [];
+  const questions = rawQuestions.filter(
+    (question) => !question?.classLevel || String(question.classLevel) === classLevel
+  );
+  if (questions.length < ROUND_SIZE) {
+    showMessage(`This subject needs at least ${ROUND_SIZE} questions for Round 1.`);
+    return;
+  }
+
+  const roundCount = Math.floor(questions.length / ROUND_SIZE);
+  const allQuestions = questions.slice(0, roundCount * ROUND_SIZE);
 
   currentQuiz = {
     subject: subjectKey,
     subjectName: publicData.subjects.find((subject) => subject.key === subjectKey)?.name || subjectKey,
-    questions: [...questions],
+    allQuestions,
+    roundSize: ROUND_SIZE,
+    roundNumber: 1,
+    roundCount,
+    overallScore: 0,
+    overallTotal: 0,
+    pendingNextRound: false,
+    questions: allQuestions.slice(0, ROUND_SIZE),
     currentIndex: 0,
     score: 0,
     answers: [],
@@ -519,7 +617,7 @@ function startQuizInternal(subjectKey) {
 }
 
 function startQuiz(subjectKey) {
-  if (!requireAuth(() => startQuizInternal(subjectKey))) return;
+  if (!ensureClassSelected(subjectKey)) return;
   startQuizInternal(subjectKey);
 }
 
@@ -528,7 +626,8 @@ function loadQuestion() {
 
   const question = currentQuiz.questions[currentQuiz.currentIndex];
   document.getElementById("quizSubjectTitle").innerText = `${currentQuiz.subjectName} Quiz`;
-  document.getElementById("questionCounter").innerText = `Q${currentQuiz.currentIndex + 1}/${currentQuiz.questions.length}`;
+  document.getElementById("questionCounter").innerText =
+    `Round ${currentQuiz.roundNumber}/${currentQuiz.roundCount} • Q${currentQuiz.currentIndex + 1}/${currentQuiz.questions.length}`;
   document.getElementById("questionText").innerHTML = escapeHtml(question.question);
   document.getElementById("timerDisplay").innerText = `00:${String(currentQuiz.timeLeft).padStart(2, "0")}`;
   document.getElementById("timerBar").style.width = "100%";
@@ -571,7 +670,11 @@ function moveToNextQuestion() {
     loadQuestion();
     startTimer();
   } else {
-    finishQuiz();
+    if (currentQuiz.roundNumber < currentQuiz.roundCount) {
+      finishRound();
+    } else {
+      finishFinalQuiz();
+    }
   }
 }
 
@@ -636,6 +739,36 @@ function startTimer() {
 }
 
 async function finishQuiz() {
+  await finishFinalQuiz();
+}
+
+function configureResultsPrimaryButton(label) {
+  const button = document.getElementById("retryQuizBtn");
+  if (!button) return;
+  button.textContent = label;
+}
+
+function startNextRound() {
+  if (!currentQuiz) return;
+  if (currentQuiz.roundNumber >= currentQuiz.roundCount) return;
+
+  currentQuiz.roundNumber += 1;
+  const start = (currentQuiz.roundNumber - 1) * currentQuiz.roundSize;
+  const end = start + currentQuiz.roundSize;
+  currentQuiz.questions = currentQuiz.allQuestions.slice(start, end);
+  currentQuiz.currentIndex = 0;
+  currentQuiz.score = 0;
+  currentQuiz.answers = [];
+  currentQuiz.timeLeft = publicData.settings.defaultTimer || 30;
+  currentQuiz.waitingForNext = false;
+  currentQuiz.pendingNextRound = false;
+
+  showPage("quiz");
+  loadQuestion();
+  startTimer();
+}
+
+function finishRound() {
   if (!currentQuiz) return;
   if (quizTimer) {
     window.clearInterval(quizTimer);
@@ -646,6 +779,31 @@ async function finishQuiz() {
 
   const score = currentQuiz.score;
   const total = currentQuiz.questions.length;
+  const percentage = Math.round((score / total) * 100);
+
+  currentQuiz.overallScore += score;
+  currentQuiz.overallTotal += total;
+  currentQuiz.pendingNextRound = true;
+
+  document.getElementById("finalScore").innerText = `${score}/${total}`;
+  document.getElementById("resultMessage").innerText =
+    `Round ${currentQuiz.roundNumber} completed. Score: ${percentage}%`;
+
+  configureResultsPrimaryButton("Next Round");
+  showPage("results");
+}
+
+async function finishFinalQuiz() {
+  if (!currentQuiz) return;
+  if (quizTimer) {
+    window.clearInterval(quizTimer);
+  }
+  if (speechSynthesisAvailable) {
+    window.speechSynthesis.cancel();
+  }
+
+  const score = currentQuiz.overallScore + currentQuiz.score;
+  const total = currentQuiz.overallTotal + currentQuiz.questions.length;
   const percentage = Math.round((score / total) * 100);
   const profile = ensureProfile();
 
@@ -673,6 +831,8 @@ async function finishQuiz() {
     showMessage(error.message);
   }
 
+  currentQuiz.pendingNextRound = false;
+  configureResultsPrimaryButton("Try Again");
   showPage("results");
 }
 
@@ -688,7 +848,6 @@ function buyProductInternal(id) {
 }
 
 function buyProduct(id) {
-  if (!requireAuth(() => buyProductInternal(id))) return;
   buyProductInternal(id);
 }
 
@@ -711,12 +870,54 @@ async function handleNewsletterSubmit(event) {
   }
 }
 
+async function handleContactSubmit(event) {
+  event.preventDefault();
+  const name = document.getElementById("contactName")?.value.trim() || "";
+  const email = document.getElementById("contactEmail")?.value.trim() || "";
+  const message = document.getElementById("contactMessage")?.value.trim() || "";
+
+  if (!message) {
+    showMessage("Please write your message first.");
+    return;
+  }
+
+  try {
+    const payload = await apiPost(`${PUBLIC_API_BASE}/contact`, { name, email, message });
+    showMessage(payload.message || "Message sent successfully.");
+    event.target.reset();
+  } catch (error) {
+    showMessage(error.message);
+  }
+}
+
+async function handleFooterCommentSubmit(event) {
+  event.preventDefault();
+  const name = document.getElementById("footerCommentName")?.value.trim() || "";
+  const message = document.getElementById("footerCommentMessage")?.value.trim() || "";
+
+  if (!message) {
+    showMessage("Please write your comment first.");
+    return;
+  }
+
+  try {
+    const payload = await apiPost(`${PUBLIC_API_BASE}/contact`, { name, email: "", message });
+    showMessage(payload.message || "Comment sent successfully.");
+    event.target.reset();
+  } catch (error) {
+    showMessage(error.message);
+  }
+}
+
 async function loadPublicData() {
-  publicData = await apiGet(`${PUBLIC_API_BASE}/bootstrap`);
+  const classLevel = getStoredClass();
+  const url = classLevel ? `${PUBLIC_API_BASE}/bootstrap?class=${encodeURIComponent(classLevel)}` : `${PUBLIC_API_BASE}/bootstrap`;
+  publicData = await apiGet(url);
   renderQuizCards("quizCardsGrid");
   renderQuizCards("quizzesGrid");
   renderProducts();
   setupCategories();
+  renderFooterSubjects();
   renderLeaderboard();
   renderStats();
   applySettingsToUi();
@@ -740,73 +941,48 @@ function bindEvents() {
   });
 
   document.getElementById("startLearningBtn").addEventListener("click", () => showPage("quizzes"));
-  document.getElementById("retryQuizBtn").addEventListener("click", () => startQuiz(currentQuiz?.subject));
-  document.getElementById("homeFromResultsBtn").addEventListener("click", () => showPage("home"));
-  document.getElementById("logoutBtn").addEventListener("click", async () => {
-    const api = getFirebaseApi();
-    if (getFirebaseUser()) {
-      try {
-        await api?.signOut?.();
-      } catch (error) {
-        showMessage(error.message);
-      }
-      updateProfileUi();
+  document.getElementById("retryQuizBtn").addEventListener("click", () => {
+    if (currentQuiz?.pendingNextRound) {
+      startNextRound();
       return;
     }
-    openAuthModal("signin");
+    startQuiz(currentQuiz?.subject);
   });
+  document.getElementById("homeFromResultsBtn").addEventListener("click", () => showPage("home"));
+  document.getElementById("logoutBtn").addEventListener("click", () => showPage("home"));
   document.getElementById("scrollTopBtn").addEventListener("click", () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   });
   document.getElementById("newsletterForm").addEventListener("submit", handleNewsletterSubmit);
+  document.getElementById("contactForm")?.addEventListener("submit", handleContactSubmit);
+  document.getElementById("footerCommentForm")?.addEventListener("submit", handleFooterCommentSubmit);
   document.getElementById("voiceToggleBtn").addEventListener("click", toggleVoice);
 
-  const authUi = getAuthElements();
-  authUi.closeBtn?.addEventListener("click", closeAuthModal);
-  authUi.backdrop?.addEventListener("click", (event) => {
-    if (event.target === authUi.backdrop) closeAuthModal();
+  const classBackdrop = document.getElementById("classBackdrop");
+  const classCloseBtn = document.getElementById("classCloseBtn");
+  const classCancelBtn = document.getElementById("classCancelBtn");
+  const classForm = document.getElementById("classForm");
+  const classSelect = document.getElementById("classSelect");
+
+  const closeClass = () => closeClassModal();
+  classCloseBtn?.addEventListener("click", closeClass);
+  classCancelBtn?.addEventListener("click", closeClass);
+  classBackdrop?.addEventListener("click", (event) => {
+    if (event.target === classBackdrop) closeClass();
   });
-  authUi.switchBtn?.addEventListener("click", () => {
-    setAuthMode(authMode === "signup" ? "signin" : "signup");
-  });
-  authUi.form?.addEventListener("submit", async (event) => {
+
+  classForm?.addEventListener("submit", (event) => {
     event.preventDefault();
-    setAuthError("");
-    const api = getFirebaseApi();
-    if (!api) {
-      setAuthError("Firebase is not ready. Please refresh and try again.");
+    const value = String(classSelect?.value || "").trim();
+    if (!/^(6|7|8|9|10)$/.test(value)) {
+      showMessage("Please select your class (6 to 10).");
       return;
     }
-
-    const name = authUi.name?.value.trim() || "";
-    const email = authUi.email?.value.trim() || "";
-    const password = authUi.password?.value || "";
-
-    if (!email || !password) {
-      setAuthError("Email and password are required.");
-      return;
-    }
-
-    try {
-      if (authMode === "signup") {
-        if (!name) {
-          setAuthError("Please enter your full name.");
-          return;
-        }
-        await api.signUp({ name, email, password });
-      } else {
-        await api.signIn({ email, password });
-      }
-
-      closeAuthModal();
-      updateProfileUi();
-      const action = pendingAuthAction;
-      pendingAuthAction = null;
-      if (typeof action === "function") {
-        action();
-      }
-    } catch (error) {
-      setAuthError(error.message || "Authentication failed.");
+    localStorage.setItem(CLASS_STORAGE_KEY, value);
+    const subjectKey = pendingClassSubjectKey;
+    closeClassModal();
+    if (subjectKey) {
+      startQuizInternal(subjectKey);
     }
   });
 
@@ -828,30 +1004,6 @@ window.buyProduct = buyProduct;
 initParticles();
 bindEvents();
 updateProfileUi();
-setAuthMode("signin");
-let authListenerAttached = false;
-function attachAuthListenerIfReady() {
-  if (authListenerAttached) return;
-  const api = getFirebaseApi();
-  if (!api?.onAuthStateChanged) return;
-  authListenerAttached = true;
-  api.onAuthStateChanged(() => {
-    updateProfileUi();
-    if (getFirebaseUser() && pendingAuthAction) {
-      const action = pendingAuthAction;
-      pendingAuthAction = null;
-      action();
-    }
-  });
-}
-
-attachAuthListenerIfReady();
-const authWaitInterval = window.setInterval(() => {
-  attachAuthListenerIfReady();
-  if (authListenerAttached) {
-    window.clearInterval(authWaitInterval);
-  }
-}, 200);
 loadPublicData().catch((error) => {
   showMessage(`Failed to load website data: ${error.message}`);
 });
