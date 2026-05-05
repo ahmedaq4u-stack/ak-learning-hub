@@ -14,6 +14,9 @@ const DB_PATH = path.join(DB_DIR, "db.json");
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "ejaz4u123";
 const TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
 const DATABASE_URL = process.env.DATABASE_URL || "";
+const ALLOW_DB_FALLBACK =
+  String(process.env.ALLOW_DB_FALLBACK || "").trim().toLowerCase() === "true" ||
+  (!DATABASE_URL && process.env.NODE_ENV !== "production");
 const ALLOWED_ORIGINS = String(process.env.ALLOWED_ORIGINS || "")
   .split(",")
   .map((origin) => origin.trim())
@@ -121,6 +124,10 @@ function createDefaultDatabase() {
       totalPageViews: 0,
       daily: {}
     },
+    meta: {
+      instanceId: crypto.randomUUID(),
+      createdAt: new Date().toISOString()
+    },
     settings: {
       maintenanceMode: false,
       voiceReading: true,
@@ -164,10 +171,15 @@ async function ensureDatabaseStore() {
       );
     }
   } catch (error) {
-    console.error("Postgres unavailable. Falling back to local JSON database.");
+    console.error("Postgres unavailable.");
     console.error(error);
-    pgPool = null;
-    ensureDatabaseFile();
+    if (ALLOW_DB_FALLBACK) {
+      console.error("Falling back to local JSON database.");
+      pgPool = null;
+      ensureDatabaseFile();
+      return;
+    }
+    throw new Error("DATABASE_URL is set but Postgres is not reachable. Refusing to start without database.");
   }
 }
 
@@ -251,6 +263,12 @@ function normalizeDb(db) {
     daily: analytics.daily && typeof analytics.daily === "object" ? analytics.daily : {}
   };
 
+  const meta = normalized.meta && typeof normalized.meta === "object" ? normalized.meta : {};
+  normalized.meta = {
+    instanceId: cleanText(meta.instanceId) || crypto.randomUUID(),
+    createdAt: cleanText(meta.createdAt) || new Date().toISOString()
+  };
+
   if (!normalized.adminPassword) {
     normalized.adminPassword = ADMIN_PASSWORD;
   }
@@ -317,6 +335,21 @@ function getAnalyticsSnapshot(db) {
     visitorsToday: clampNumber(dayRecord.visitors, 0, Number.MAX_SAFE_INTEGER, 0),
     pageViewsToday: clampNumber(dayRecord.pageViews, 0, Number.MAX_SAFE_INTEGER, 0)
   };
+}
+
+async function getStorageMode() {
+  if (!DATABASE_URL || !pgPool) {
+    return { mode: "file", allowFallback: true };
+  }
+  try {
+    await ensureDatabaseStore();
+    if (!pgPool) {
+      return { mode: "file", allowFallback: true };
+    }
+    return { mode: "postgres", allowFallback: ALLOW_DB_FALLBACK };
+  } catch (error) {
+    return { mode: "postgres-error", allowFallback: ALLOW_DB_FALLBACK, error: String(error?.message || error) };
+  }
 }
 
 function clampNumber(value, min, max, fallback) {
@@ -533,6 +566,24 @@ app.get("/api/public/bootstrap", async (req, res) => {
     payload.stats.totalQuestions = getQuestionCount({ ...db, questions: payload.questions });
   }
   res.json(payload);
+});
+
+app.get("/api/public/health", async (req, res) => {
+  try {
+    const storage = await getStorageMode();
+    const db = await readDb();
+    res.json({
+      ok: true,
+      version: APP_VERSION,
+      storage: storage.mode,
+      allowFallback: storage.allowFallback,
+      instanceId: db.meta?.instanceId || "",
+      createdAt: db.meta?.createdAt || "",
+      totalQuestions: getQuestionCount(db)
+    });
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error?.message || "Health check failed." });
+  }
 });
 
 app.post("/api/public/visit", publicVisitRateLimit, async (req, res) => {
