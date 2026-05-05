@@ -116,6 +116,11 @@ function createDefaultDatabase() {
     questions: DEFAULT_QUESTIONS,
     categories: DEFAULT_CATEGORIES,
     products: DEFAULT_PRODUCTS,
+    analytics: {
+      totalVisitors: 0,
+      totalPageViews: 0,
+      daily: {}
+    },
     settings: {
       maintenanceMode: false,
       voiceReading: true,
@@ -239,6 +244,13 @@ function normalizeDb(db) {
     defaultTimer: clampNumber(normalized.settings?.defaultTimer, 10, 120, 30)
   };
 
+  const analytics = normalized.analytics && typeof normalized.analytics === "object" ? normalized.analytics : {};
+  normalized.analytics = {
+    totalVisitors: clampNumber(analytics.totalVisitors, 0, Number.MAX_SAFE_INTEGER, 0),
+    totalPageViews: clampNumber(analytics.totalPageViews, 0, Number.MAX_SAFE_INTEGER, 0),
+    daily: analytics.daily && typeof analytics.daily === "object" ? analytics.daily : {}
+  };
+
   if (!normalized.adminPassword) {
     normalized.adminPassword = ADMIN_PASSWORD;
   }
@@ -248,6 +260,63 @@ function normalizeDb(db) {
     : ["+923332786013"];
 
   return normalized;
+}
+
+function getDateKey(date = new Date()) {
+  return date.toISOString().slice(0, 10);
+}
+
+function trimAnalyticsDaily(daily, keepDays = 90) {
+  const keys = Object.keys(daily || {}).sort();
+  if (keys.length <= keepDays) return daily;
+  const cutoffKeys = keys.slice(0, Math.max(0, keys.length - keepDays));
+  for (const key of cutoffKeys) {
+    delete daily[key];
+  }
+  return daily;
+}
+
+function recordVisit(db, visitorId) {
+  const cleanVisitorId = cleanText(visitorId).slice(0, 80);
+  if (!cleanVisitorId) return;
+
+  const dayKey = getDateKey();
+  const analytics = db.analytics;
+  analytics.daily = analytics.daily && typeof analytics.daily === "object" ? analytics.daily : {};
+
+  const dayRecord = analytics.daily[dayKey] && typeof analytics.daily[dayKey] === "object" ? analytics.daily[dayKey] : {};
+  const seen = Array.isArray(dayRecord.visitorIds) ? dayRecord.visitorIds : [];
+
+  const nextRecord = {
+    visitors: clampNumber(dayRecord.visitors, 0, Number.MAX_SAFE_INTEGER, 0),
+    pageViews: clampNumber(dayRecord.pageViews, 0, Number.MAX_SAFE_INTEGER, 0),
+    visitorIds: seen
+  };
+
+  analytics.totalPageViews = clampNumber(analytics.totalPageViews, 0, Number.MAX_SAFE_INTEGER, 0) + 1;
+  nextRecord.pageViews += 1;
+
+  if (!seen.includes(cleanVisitorId)) {
+    if (seen.length < 20000) {
+      seen.push(cleanVisitorId);
+    }
+    analytics.totalVisitors = clampNumber(analytics.totalVisitors, 0, Number.MAX_SAFE_INTEGER, 0) + 1;
+    nextRecord.visitors += 1;
+  }
+
+  analytics.daily[dayKey] = nextRecord;
+  trimAnalyticsDaily(analytics.daily, 90);
+}
+
+function getAnalyticsSnapshot(db) {
+  const dayKey = getDateKey();
+  const dayRecord = db.analytics?.daily?.[dayKey] || {};
+  return {
+    totalVisitors: clampNumber(db.analytics?.totalVisitors, 0, Number.MAX_SAFE_INTEGER, 0),
+    totalPageViews: clampNumber(db.analytics?.totalPageViews, 0, Number.MAX_SAFE_INTEGER, 0),
+    visitorsToday: clampNumber(dayRecord.visitors, 0, Number.MAX_SAFE_INTEGER, 0),
+    pageViewsToday: clampNumber(dayRecord.pageViews, 0, Number.MAX_SAFE_INTEGER, 0)
+  };
 }
 
 function clampNumber(value, min, max, fallback) {
@@ -339,6 +408,7 @@ function buildLeaderboard(db, limit = 10) {
 function buildPublicPayload(db) {
   const attemptStats = getAttemptStats(db);
   const questionCount = getQuestionCount(db);
+  const analytics = getAnalyticsSnapshot(db);
 
   return {
     subjects: db.subjects,
@@ -351,7 +421,11 @@ function buildPublicPayload(db) {
       totalUsers: db.statsSeed.totalUsers + db.subscribers.length,
       totalQuestions: questionCount,
       totalQuizzesTaken: db.statsSeed.totalQuizzesTaken + attemptStats.totalAttempts,
-      averageScore: attemptStats.averageScore
+      averageScore: attemptStats.averageScore,
+      totalVisitors: analytics.totalVisitors,
+      visitorsToday: analytics.visitorsToday,
+      totalPageViews: analytics.totalPageViews,
+      pageViewsToday: analytics.pageViewsToday
     }
   };
 }
@@ -443,6 +517,13 @@ const publicContactRateLimit = rateLimit({
   legacyHeaders: false
 });
 
+const publicVisitRateLimit = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  limit: 120,
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
 app.get("/api/public/bootstrap", async (req, res) => {
   const db = await readDb();
   const payload = buildPublicPayload(db);
@@ -452,6 +533,18 @@ app.get("/api/public/bootstrap", async (req, res) => {
     payload.stats.totalQuestions = getQuestionCount({ ...db, questions: payload.questions });
   }
   res.json(payload);
+});
+
+app.post("/api/public/visit", publicVisitRateLimit, async (req, res) => {
+  const db = await readDb();
+  const visitorId = cleanText(req.body.visitorId);
+  if (!visitorId) {
+    return res.status(400).json({ message: "visitorId is required." });
+  }
+
+  recordVisit(db, visitorId);
+  await writeDb(db);
+  res.json({ ok: true });
 });
 
 app.post("/api/public/newsletter", async (req, res) => {
