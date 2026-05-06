@@ -5,8 +5,43 @@ function normalizeApiBase(value) {
 }
 
 const API_BASE_OVERRIDE_KEY = "ak_api_base_override";
-const API_ORIGIN = normalizeApiBase(localStorage.getItem(API_BASE_OVERRIDE_KEY) || window.AK_API_BASE);
-const PUBLIC_API_BASE = API_ORIGIN ? `${API_ORIGIN}/api/public` : "/api/public";
+function resetApiOverrideIfRequested() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("resetApi") !== "1") return;
+    localStorage.removeItem(API_BASE_OVERRIDE_KEY);
+    params.delete("resetApi");
+    const query = params.toString();
+    const next = `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`;
+    history.replaceState(null, "", next);
+  } catch (error) {}
+}
+
+resetApiOverrideIfRequested();
+
+let API_ORIGIN = normalizeApiBase(localStorage.getItem(API_BASE_OVERRIDE_KEY) || window.AK_API_BASE);
+let PUBLIC_API_BASE = API_ORIGIN ? `${API_ORIGIN}/api/public` : "/api/public";
+
+function updateApiOrigin(nextOrigin) {
+  API_ORIGIN = normalizeApiBase(nextOrigin);
+  PUBLIC_API_BASE = API_ORIGIN ? `${API_ORIGIN}/api/public` : "/api/public";
+}
+
+function promptForBackendOnce() {
+  if (window.__ak_backend_prompted) return false;
+  window.__ak_backend_prompted = true;
+  const current = API_ORIGIN || "";
+  const entered = window.prompt(
+    "Backend is not reachable. Paste your Railway backend domain (example: https://xxxx.up.railway.app).",
+    current
+  );
+  const normalized = normalizeApiBase(entered);
+  if (!normalized) return false;
+  localStorage.setItem(API_BASE_OVERRIDE_KEY, normalized);
+  updateApiOrigin(normalized);
+  window.location.reload();
+  return true;
+}
 const PROFILE_STORAGE_KEY = "ak_learner_profile";
 const VOICE_STORAGE_KEY = "ak_voice_enabled";
 const CLASS_STORAGE_KEY = "ak_learner_class";
@@ -75,9 +110,14 @@ function ensureClassSelected(subjectKey) {
 
 function apiGet(url) {
   return fetch(url).then(async (response) => {
-    const payload = await response.json();
+    const contentType = response.headers.get("content-type") || "";
+    const payload = contentType.includes("application/json") ? await response.json() : await response.text();
     if (!response.ok) {
-      throw new Error(payload.message || "Request failed.");
+      const message = typeof payload === "string" ? "Request failed." : payload.message || "Request failed.";
+      const error = new Error(message);
+      error.status = response.status;
+      error.payload = payload;
+      throw error;
     }
     return payload;
   });
@@ -91,9 +131,14 @@ function apiPost(url, body) {
     },
     body: JSON.stringify(body)
   }).then(async (response) => {
-    const payload = await response.json();
+    const contentType = response.headers.get("content-type") || "";
+    const payload = contentType.includes("application/json") ? await response.json() : await response.text();
     if (!response.ok) {
-      throw new Error(payload.message || "Request failed.");
+      const message = typeof payload === "string" ? "Request failed." : payload.message || "Request failed.";
+      const error = new Error(message);
+      error.status = response.status;
+      error.payload = payload;
+      throw error;
     }
     return payload;
   });
@@ -910,17 +955,26 @@ async function handleFooterCommentSubmit(event) {
 }
 
 async function loadPublicData() {
-  const classLevel = getStoredClass();
-  const url = classLevel ? `${PUBLIC_API_BASE}/bootstrap?class=${encodeURIComponent(classLevel)}` : `${PUBLIC_API_BASE}/bootstrap`;
-  publicData = await apiGet(url);
-  renderQuizCards("quizCardsGrid");
-  renderQuizCards("quizzesGrid");
-  renderProducts();
-  setupCategories();
-  renderFooterSubjects();
-  renderLeaderboard();
-  renderStats();
-  applySettingsToUi();
+  try {
+    const classLevel = getStoredClass();
+    const url = classLevel
+      ? `${PUBLIC_API_BASE}/bootstrap?class=${encodeURIComponent(classLevel)}`
+      : `${PUBLIC_API_BASE}/bootstrap`;
+    publicData = await apiGet(url);
+    renderQuizCards("quizCardsGrid");
+    renderQuizCards("quizzesGrid");
+    renderProducts();
+    setupCategories();
+    renderFooterSubjects();
+    renderLeaderboard();
+    renderStats();
+    applySettingsToUi();
+  } catch (error) {
+    if (promptForBackendOnce()) {
+      return;
+    }
+    throw error;
+  }
 }
 
 function bindEvents() {

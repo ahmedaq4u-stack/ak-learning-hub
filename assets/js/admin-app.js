@@ -5,6 +5,20 @@ function normalizeApiBase(value) {
 }
 
 const API_BASE_OVERRIDE_KEY = "ak_api_base_override";
+function resetApiOverrideIfRequested() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("resetApi") !== "1") return;
+    localStorage.removeItem(API_BASE_OVERRIDE_KEY);
+    params.delete("resetApi");
+    const query = params.toString();
+    const next = `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`;
+    history.replaceState(null, "", next);
+  } catch (error) {}
+}
+
+resetApiOverrideIfRequested();
+
 let API_ORIGIN = normalizeApiBase(localStorage.getItem(API_BASE_OVERRIDE_KEY) || window.AK_API_BASE);
 let API_BASE = API_ORIGIN ? `${API_ORIGIN}/api` : "/api";
 const ADMIN_TOKEN_KEY = "ak_admin_token";
@@ -57,6 +71,24 @@ function apiFetch(url, options = {}) {
       const payload = contentType.includes("application/json") ? await response.json() : await response.text();
 
       if (!response.ok) {
+        if (!window.__ak_backend_prompted) {
+          const looksLikeHtml = typeof payload === "string" && /<html|<!doctype/i.test(payload);
+          if (looksLikeHtml || response.status === 404) {
+            window.__ak_backend_prompted = true;
+            const current = API_ORIGIN || "";
+            const entered = window.prompt(
+              "Backend URL looks wrong. Paste your Railway backend domain (example: https://xxxx.up.railway.app).",
+              current
+            );
+            const normalized = normalizeApiBase(entered);
+            if (normalized) {
+              localStorage.setItem(API_BASE_OVERRIDE_KEY, normalized);
+              window.location.reload();
+              return new Promise(() => {});
+            }
+          }
+        }
+
         const message = typeof payload === "string" ? payload : payload.message || "Request failed.";
         const error = new Error(message);
         error.status = response.status;
