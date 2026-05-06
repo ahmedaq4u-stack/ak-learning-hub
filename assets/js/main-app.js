@@ -10,8 +10,6 @@ const PUBLIC_API_BASE = API_ORIGIN ? `${API_ORIGIN}/api/public` : "/api/public";
 const PROFILE_STORAGE_KEY = "ak_learner_profile";
 const VOICE_STORAGE_KEY = "ak_voice_enabled";
 const CLASS_STORAGE_KEY = "ak_learner_class";
-const VISITOR_ID_STORAGE_KEY = "ak_visitor_id";
-const VISIT_SENT_SESSION_KEY = "ak_visit_sent";
 const ROUND_SIZE = 20;
 
 let publicData = {
@@ -19,7 +17,6 @@ let publicData = {
   questions: {},
   categories: [],
   products: [],
-  blogs: [],
   settings: {
     maintenanceMode: false,
     voiceReading: true,
@@ -100,30 +97,6 @@ function apiPost(url, body) {
     }
     return payload;
   });
-}
-
-function ensureVisitorId() {
-  const existing = String(localStorage.getItem(VISITOR_ID_STORAGE_KEY) || "").trim();
-  if (existing) return existing;
-  const generated =
-    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-      ? crypto.randomUUID()
-      : `v_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
-  localStorage.setItem(VISITOR_ID_STORAGE_KEY, generated);
-  return generated;
-}
-
-async function trackVisitOnce() {
-  if (sessionStorage.getItem(VISIT_SENT_SESSION_KEY) === "true") return;
-  sessionStorage.setItem(VISIT_SENT_SESSION_KEY, "true");
-  try {
-    await apiPost(`${PUBLIC_API_BASE}/visit`, {
-      visitorId: ensureVisitorId(),
-      path: window.location.pathname
-    });
-  } catch (error) {
-    sessionStorage.removeItem(VISIT_SENT_SESSION_KEY);
-  }
 }
 
 function showMessage(message) {
@@ -536,128 +509,6 @@ function renderStats() {
   document.getElementById("ratingCount").innerText = "4.8";
 }
 
-function formatBlogDate(value) {
-  const date = new Date(value);
-  if (!Number.isFinite(date.getTime())) return "";
-  return date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "2-digit" });
-}
-
-function setBlogViewMode(mode) {
-  const list = document.getElementById("blogsList");
-  const postView = document.getElementById("blogPostView");
-  if (list) list.style.display = mode === "post" ? "none" : "";
-  if (postView) postView.style.display = mode === "post" ? "" : "none";
-}
-
-function renderBlogList() {
-  const container = document.getElementById("blogsList");
-  if (!container) return;
-
-  const posts = Array.isArray(publicData.blogs) ? publicData.blogs : [];
-  if (!posts.length) {
-    container.innerHTML =
-      '<div style="grid-column: 1 / -1; text-align:center; color: var(--gray); padding: 1.5rem 0;">No blog posts yet.</div>';
-    return;
-  }
-
-  container.innerHTML = posts
-    .map((post) => {
-      const title = escapeHtml(post.title);
-      const excerpt = escapeHtml(post.excerpt || "");
-      const dateLabel = escapeHtml(formatBlogDate(post.createdAt));
-      const coverImage = String(post.coverImage || "").trim();
-      const imageHtml = coverImage
-        ? `<img src="${escapeHtml(coverImage)}" alt="${title}" style="width:100%; height:100%; object-fit:cover; display:block;">`
-        : `<i class="fas fa-pen-nib"></i>`;
-      return `
-        <div class="product-card" onclick="openBlogPost('${escapeHtml(post.slug)}')" style="cursor: pointer;">
-          <div class="product-image" style="padding:0;">${imageHtml}</div>
-          <div class="product-info">
-            <div class="product-title">${title}</div>
-            <p style="margin: 0.35rem 0 0.65rem 0;">${excerpt}</p>
-            <div style="display:flex; justify-content: space-between; align-items:center; gap: 12px;">
-              <span style="color: var(--gray); font-size: 0.85rem;">${dateLabel}</span>
-              <button class="btn-primary" type="button" onclick="event.stopPropagation(); openBlogPost('${escapeHtml(
-                post.slug
-              )}')">Read</button>
-            </div>
-          </div>
-        </div>
-      `;
-    })
-    .join("");
-}
-
-async function openBlogPost(slug) {
-  const cleanSlug = String(slug || "").trim();
-  if (!cleanSlug) return;
-
-  setBlogViewMode("post");
-  const titleEl = document.getElementById("blogPostTitle");
-  const metaEl = document.getElementById("blogPostMeta");
-  const imageEl = document.getElementById("blogPostImage");
-  const contentEl = document.getElementById("blogPostContent");
-  const linkEl = document.getElementById("blogPermalink");
-
-  if (titleEl) titleEl.textContent = "Loading...";
-  if (metaEl) metaEl.textContent = "";
-  if (contentEl) contentEl.textContent = "";
-  if (imageEl) imageEl.style.display = "none";
-
-  try {
-    const payload = await apiGet(`${PUBLIC_API_BASE}/blogs?slug=${encodeURIComponent(cleanSlug)}`);
-    const post = payload?.post;
-    if (!post) {
-      throw new Error("Blog post not found.");
-    }
-
-    if (titleEl) titleEl.textContent = post.title || "";
-    if (metaEl) metaEl.textContent = formatBlogDate(post.createdAt);
-
-    const coverImage = String(post.coverImage || "").trim();
-    if (imageEl) {
-      if (coverImage) {
-        imageEl.src = coverImage;
-        imageEl.style.display = "";
-      } else {
-        imageEl.removeAttribute("src");
-        imageEl.style.display = "none";
-      }
-    }
-    if (contentEl) {
-      contentEl.textContent = post.content || "";
-    }
-
-    const hash = `blog=${encodeURIComponent(post.slug)}`;
-    if (linkEl) {
-      linkEl.href = `#${hash}`;
-    }
-    history.replaceState(null, "", `${window.location.pathname}${window.location.search}#${hash}`);
-  } catch (error) {
-    if (titleEl) titleEl.textContent = "Failed to load post";
-    if (contentEl) contentEl.textContent = error.message || "Request failed.";
-  }
-}
-
-function closeBlogPost() {
-  setBlogViewMode("list");
-  if (window.location.hash.startsWith("#blog=")) {
-    history.replaceState(null, "", window.location.pathname + window.location.search);
-  }
-}
-
-function getBlogSlugFromHash() {
-  const raw = String(window.location.hash || "");
-  if (!raw.startsWith("#blog=")) return "";
-  return decodeURIComponent(raw.slice(6));
-}
-
-function openBlogFromHash() {
-  const slug = getBlogSlugFromHash();
-  if (!slug) return;
-  openBlogPost(slug);
-}
-
 function applySettingsToUi() {
   const voiceButton = document.getElementById("voiceToggleBtn");
   const voiceStatus = document.getElementById("voiceStatus");
@@ -686,12 +537,6 @@ function showPage(pageId) {
   if (pageId === "affiliate") {
     renderProducts();
     setupCategories();
-  }
-
-  if (pageId === "blogs") {
-    setBlogViewMode("list");
-    renderBlogList();
-    openBlogFromHash();
   }
 
   if (pageId === "leaderboard") {
@@ -1076,19 +921,6 @@ async function loadPublicData() {
   renderLeaderboard();
   renderStats();
   applySettingsToUi();
-
-  try {
-    const blogsPayload = await apiGet(`${PUBLIC_API_BASE}/blogs?limit=50`);
-    publicData.blogs = Array.isArray(blogsPayload?.posts) ? blogsPayload.posts : [];
-  } catch (error) {
-    publicData.blogs = [];
-  }
-  renderBlogList();
-  const initialSlug = getBlogSlugFromHash();
-  if (initialSlug) {
-    showPage("blogs");
-    openBlogPost(initialSlug);
-  }
 }
 
 function bindEvents() {
@@ -1125,20 +957,6 @@ function bindEvents() {
   document.getElementById("contactForm")?.addEventListener("submit", handleContactSubmit);
   document.getElementById("footerCommentForm")?.addEventListener("submit", handleFooterCommentSubmit);
   document.getElementById("voiceToggleBtn").addEventListener("click", toggleVoice);
-  document.getElementById("blogBackBtn")?.addEventListener("click", closeBlogPost);
-  window.addEventListener("hashchange", () => {
-    const slug = getBlogSlugFromHash();
-    if (slug) {
-      showPage("blogs");
-      openBlogPost(slug);
-      return;
-    }
-
-    const blogsPage = document.getElementById("blogs");
-    if (blogsPage?.classList.contains("active")) {
-      closeBlogPost();
-    }
-  });
 
   const classBackdrop = document.getElementById("classBackdrop");
   const classCloseBtn = document.getElementById("classCloseBtn");
@@ -1182,12 +1000,10 @@ function bindEvents() {
 window.startQuiz = startQuiz;
 window.checkAnswer = checkAnswer;
 window.buyProduct = buyProduct;
-window.openBlogPost = openBlogPost;
 
 initParticles();
 bindEvents();
 updateProfileUi();
-trackVisitOnce();
 loadPublicData().catch((error) => {
   showMessage(`Failed to load website data: ${error.message}`);
 });

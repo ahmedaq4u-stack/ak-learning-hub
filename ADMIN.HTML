@@ -735,8 +735,6 @@
 
             <div class="stats-grid">
                 <div class="stat-card"><div class="stat-icon"><i class="fas fa-users"></i></div><div class="stat-number" id="totalUsers">1,580</div><p>Total Users</p></div>
-                <div class="stat-card"><div class="stat-icon"><i class="fas fa-user-clock"></i></div><div class="stat-number" id="visitorsToday">0</div><p>Visitors Today</p></div>
-                <div class="stat-card"><div class="stat-icon"><i class="fas fa-chart-line"></i></div><div class="stat-number" id="totalVisitors">0</div><p>Total Visitors</p></div>
                 <div class="stat-card"><div class="stat-icon"><i class="fas fa-book"></i></div><div class="stat-number" id="totalSubjects">0</div><p>Subjects</p></div>
                 <div class="stat-card"><div class="stat-icon"><i class="fas fa-question-circle"></i></div><div class="stat-number" id="totalQuestions">0</div><p>Total Questions</p></div>
                 <div class="stat-card"><div class="stat-icon"><i class="fas fa-shopping-bag"></i></div><div class="stat-number" id="totalProducts">0</div><p>Total Products</p></div>
@@ -841,7 +839,7 @@
 
                         <hr>
                         <div style="display:flex; align-items:center; justify-content:space-between; gap: 12px; margin-bottom: 0.8rem;">
-                            <h4 id="existingQuestionsTitle" style="margin: 0;">📋 Existing Questions</h4>
+                            <h4 style="margin: 0;">📋 Existing Questions</h4>
                             <button class="btn btn-danger" id="clearQuestionsBtn">
                                 <i class="fas fa-trash-alt"></i> Delete All
                             </button>
@@ -872,10 +870,6 @@
                         <div class="form-group">
                             <label>Buy Link (Product URL)</label>
                             <input type="url" id="productUrl" class="form-control" placeholder="Paste product/affiliate link here">
-                        </div>
-                        <div class="form-group">
-                            <label>Image URL</label>
-                            <input type="url" id="productImage" class="form-control" placeholder="Paste image URL (https://...)">
                         </div>
                         <div class="form-group">
                             <textarea id="productDesc" class="form-control" placeholder="Product description" rows="2"></textarea>
@@ -909,51 +903,6 @@
                             <table>
                                 <thead><tr><th>Title</th><th>Price</th><th>Category</th><th>Actions</th></tr></thead>
                                 <tbody id="productList"></tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="admin-card">
-                    <div class="card-header">
-                        <i class="fas fa-pen-nib"></i>
-                        <h3>Manage Blogs</h3>
-                    </div>
-                    <div class="card-body">
-                        <div class="form-group">
-                            <label>Title</label>
-                            <input type="text" id="blogTitle" class="form-control" placeholder="Blog title">
-                        </div>
-                        <div class="form-group">
-                            <label>Cover Image URL (optional)</label>
-                            <input type="url" id="blogCoverImage" class="form-control" placeholder="https://...">
-                        </div>
-                        <div class="form-group">
-                            <label>Excerpt (optional)</label>
-                            <input type="text" id="blogExcerpt" class="form-control" placeholder="Short summary shown on the blog list">
-                        </div>
-                        <div class="form-group">
-                            <label>Content</label>
-                            <textarea id="blogContent" class="form-control" rows="8" placeholder="Write your blog post here..."></textarea>
-                        </div>
-                        <div class="form-group">
-                            <label style="display:flex; align-items:center; gap: 8px; cursor: pointer;">
-                                <input type="checkbox" id="blogPublished"> Published
-                            </label>
-                        </div>
-                        <button class="btn btn-primary" id="saveBlogBtn" style="width: 100%;">
-                            <i class="fas fa-plus-circle"></i> Add Blog Post
-                        </button>
-                        <button class="btn btn-outline" id="resetBlogBtn" style="width: 100%; margin-top: 0.6rem;">
-                            <i class="fas fa-eraser"></i> Reset
-                        </button>
-
-                        <hr>
-                        <h4 style="margin-bottom: 0.8rem;">📝 Current Blog Posts</h4>
-                        <div class="product-table">
-                            <table>
-                                <thead><tr><th>Title</th><th>Status</th><th>Actions</th></tr></thead>
-                                <tbody id="blogList"></tbody>
                             </table>
                         </div>
                     </div>
