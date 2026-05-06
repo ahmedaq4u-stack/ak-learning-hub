@@ -5,6 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>AK Learning Hub | Master Your Knowledge</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        (function () {
+            try {
+                const choice = localStorage.getItem("ak_consent_choice");
+                if (choice !== "accept") return;
+                const script = document.createElement("script");
+                script.async = true;
+                script.src = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9385045692177118";
+                script.crossOrigin = "anonymous";
+                document.head.appendChild(script);
+            } catch (error) {}
+        })();
+    </script>
     <style>
         * {
             margin: 0;
@@ -22,21 +35,27 @@
             --success: #06D6A0;
             --danger: #EF476F;
             --warning: #FB8B67;
-            --light: #FFFFFF;
-            --gray-light: #F8F9FA;
+            --light: #F6F4FF;
+            --gray-light: #EEF2FF;
             --gray: #6C757D;
             --dark: #212529;
             --dark-text: #2C3E50;
-            --glass-bg: rgba(255, 255, 255, 0.85);
-            --glass-border: rgba(0, 0, 0, 0.08);
+            --glass-bg: rgba(244, 241, 255, 0.92);
+            --glass-border: rgba(117, 127, 182, 0.18);
+            --surface-1: #F7F4FF;
+            --surface-2: #EEF4FF;
+            --surface-3: #FFF3F8;
             --border-radius: 20px;
             --box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
             --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            --header-bg: linear-gradient(135deg, #0B1224 0%, #111C33 100%);
+            --header-bg-scrolled: linear-gradient(135deg, #0A1020 0%, #0F172A 100%);
+            --footer-bg: linear-gradient(135deg, #070B16 0%, #0B1224 50%, #0F172A 100%);
         }
 
         body {
             font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #F5F7FA 0%, #E8ECF1 100%);
+            background: linear-gradient(135deg, #F7F3FF 0%, #EEF5FF 55%, #FFF5F9 100%);
             color: var(--dark);
             min-height: 100vh;
             overflow-x: hidden;
@@ -117,17 +136,17 @@
             position: sticky;
             top: 0;
             z-index: 1000;
-            background: linear-gradient(135deg, #FFFFFF 0%, #F8F9FA 100%);
+            background: var(--header-bg);
             border-bottom: 2px solid transparent;
             border-image: linear-gradient(135deg, var(--primary), var(--secondary), var(--accent));
             border-image-slice: 1;
             transition: all 0.3s ease;
-            box-shadow: 0 2px 20px rgba(67, 97, 238, 0.1);
+            box-shadow: 0 10px 30px rgba(2, 6, 23, 0.35);
         }
 
         header.scrolled {
-            background: linear-gradient(135deg, #FFFFFF 0%, #FFFFFF 100%);
-            box-shadow: 0 4px 25px rgba(0, 0, 0, 0.08);
+            background: var(--header-bg-scrolled);
+            box-shadow: 0 14px 40px rgba(2, 6, 23, 0.45);
         }
 
         .header-content {
@@ -195,14 +214,15 @@
         nav ul {
             display: flex;
             gap: 6px;
-            background: rgba(67, 97, 238, 0.05);
+            background: rgba(255, 255, 255, 0.08);
             padding: 5px;
             border-radius: 50px;
             backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.14);
         }
 
         nav a {
-            color: var(--dark);
+            color: rgba(255, 255, 255, 0.9);
             text-decoration: none;
             padding: 8px 20px;
             border-radius: 50px;
@@ -215,14 +235,15 @@
         }
 
         nav a:hover {
-            background: linear-gradient(135deg, rgba(67, 97, 238, 0.1), rgba(247, 37, 133, 0.1));
+            background: rgba(255, 255, 255, 0.14);
             transform: translateY(-2px);
         }
 
         nav a.active {
             background: linear-gradient(135deg, var(--primary), var(--secondary));
             color: white;
-            box-shadow: 0 4px 12px rgba(67, 97, 238, 0.3);
+            box-shadow: 0 10px 18px rgba(67, 97, 238, 0.22);
+            border: 1px solid rgba(255, 255, 255, 0.16);
         }
 
         /* User Actions */
@@ -230,9 +251,10 @@
             display: flex;
             gap: 12px;
             align-items: center;
-            background: rgba(67, 97, 238, 0.05);
+            background: rgba(255, 255, 255, 0.08);
             padding: 5px 15px;
             border-radius: 50px;
+            border: 1px solid rgba(255, 255, 255, 0.14);
         }
 
         .notification-bell {
@@ -244,9 +266,10 @@
             align-items: center;
             justify-content: center;
             border-radius: 50%;
-            background: white;
+            background: rgba(255, 255, 255, 0.1);
             transition: var(--transition);
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            color: rgba(255, 255, 255, 0.9);
         }
 
         .notification-bell:hover {
@@ -297,7 +320,7 @@
         }
 
         .btn-outline {
-            background: white;
+            background: var(--surface-1);
             border: 1px solid var(--primary);
             color: var(--primary);
             padding: 8px 18px;
@@ -308,22 +331,34 @@
         }
 
         .btn-outline:hover {
-            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            background: linear-gradient(135deg, #DEE8FF, #F9DFF0);
             border-color: transparent;
-            color: white;
+            color: var(--dark-text);
             transform: translateY(-2px);
         }
 
-        .btn-primary {
+        header .btn-outline {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.22);
+            color: rgba(255, 255, 255, 0.92);
+        }
+
+        header .btn-outline:hover {
             background: linear-gradient(135deg, var(--primary), var(--secondary));
-            border: none;
+            border-color: transparent;
             color: white;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #DCE6FF, #F8DFEF);
+            border: none;
+            color: var(--dark-text);
             padding: 12px 28px;
             border-radius: 50px;
             font-weight: 600;
             cursor: pointer;
             transition: var(--transition);
-            box-shadow: 0 4px 12px rgba(67, 97, 238, 0.3);
+            box-shadow: 0 4px 12px rgba(67, 97, 238, 0.18);
         }
 
         .btn-primary:hover {
@@ -349,8 +384,8 @@
         }
 
         .voice-control.active {
-            background: linear-gradient(135deg, var(--primary), var(--secondary));
-            color: white;
+            background: linear-gradient(135deg, #DCE6FF, #F8DFEF);
+            color: var(--dark-text);
         }
 
         .voice-control i {
@@ -361,7 +396,7 @@
         .hero {
             text-align: center;
             padding: 3rem 2rem;
-            background: white;
+            background: linear-gradient(135deg, var(--surface-1), var(--surface-2));
             border-radius: 30px;
             margin: 2rem 0;
             box-shadow: var(--box-shadow);
@@ -393,7 +428,7 @@
         }
 
         .stat-card {
-            background: white;
+            background: linear-gradient(135deg, var(--surface-1), var(--surface-2));
             border-radius: 20px;
             padding: 1.5rem;
             text-align: center;
@@ -426,23 +461,28 @@
         /* Quiz Cards */
         .quiz-subjects-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 1.8rem;
-            margin: 2rem 0;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 1.2rem;
+            margin: 1.5rem 0 2rem;
         }
 
         .quiz-card {
             perspective: 1000px;
             cursor: pointer;
+            transition: transform 0.25s ease;
         }
 
         .quiz-card-inner {
             position: relative;
             width: 100%;
-            height: 300px;
+            height: 235px;
             transition: transform 0.6s;
             transform-style: preserve-3d;
-            border-radius: 20px;
+            border-radius: 24px;
+        }
+
+        .quiz-card:hover {
+            transform: translateY(-6px);
         }
 
         .quiz-card:hover .quiz-card-inner {
@@ -454,50 +494,109 @@
             width: 100%;
             height: 100%;
             backface-visibility: hidden;
-            border-radius: 20px;
-            padding: 1.5rem;
+            border-radius: 24px;
+            padding: 1.25rem;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             text-align: center;
-            background: white;
-            box-shadow: var(--box-shadow);
+            background: linear-gradient(135deg, rgba(247, 244, 255, 0.98), rgba(237, 244, 255, 0.98));
+            box-shadow: 0 18px 35px rgba(15, 23, 42, 0.12);
+            border: 1px solid rgba(194, 203, 255, 0.55);
+        }
+
+        .quiz-card-front {
+            overflow: hidden;
+        }
+
+        .quiz-card-front::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(67, 97, 238, 0.08), rgba(247, 37, 133, 0.08));
+            pointer-events: none;
+        }
+
+        .subject-icon-badge {
+            width: 72px;
+            height: 72px;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, rgba(67, 97, 238, 0.12), rgba(247, 37, 133, 0.14));
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.35);
+            margin-bottom: 0.9rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .subject-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 999px;
+            background: rgba(67, 97, 238, 0.08);
+            color: var(--primary);
+            font-size: 0.78rem;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            margin-top: 0.65rem;
+            position: relative;
+            z-index: 1;
         }
 
         .quiz-card-front h3 {
             color: var(--dark-text);
-            margin-top: 0.5rem;
+            margin-top: 0.1rem;
+            margin-bottom: 0.45rem;
+            font-size: 1.1rem;
+            position: relative;
+            z-index: 1;
         }
 
         .quiz-card-front p {
             color: var(--gray);
+            margin: 0;
+            font-size: 0.9rem;
+            position: relative;
+            z-index: 1;
         }
 
         .quiz-card-front i {
-            font-size: 3rem;
-            margin-bottom: 1rem;
+            font-size: 2rem;
         }
 
         .quiz-card-back {
-            background: linear-gradient(135deg, var(--primary), var(--secondary));
-            color: white;
+            background: linear-gradient(135deg, #E5EDFF, #FDE5F1);
+            color: var(--dark-text);
             transform: rotateY(180deg);
         }
 
         .quiz-card-back h3 {
-            color: white;
+            color: var(--dark-text);
+            margin: 0.7rem 0 0.35rem;
+            font-size: 1.15rem;
+        }
+
+        .quiz-card-back p {
+            margin: 0;
+            font-size: 0.9rem;
+            opacity: 0.92;
         }
 
         .quiz-card-back button {
-            background: white;
+            background: var(--surface-1);
             color: var(--primary);
             border: none;
-            padding: 10px 25px;
+            padding: 10px 22px;
             border-radius: 50px;
             font-weight: bold;
             cursor: pointer;
             margin-top: 1rem;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.16);
         }
 
         /* Products Grid */
@@ -509,7 +608,7 @@
         }
 
         .product-card {
-            background: white;
+            background: linear-gradient(135deg, var(--surface-1), var(--surface-3));
             border-radius: 20px;
             overflow: hidden;
             transition: var(--transition);
@@ -565,8 +664,8 @@
 
         .category-btn {
             padding: 8px 20px;
-            background: white;
-            border: 1px solid #E0E0E0;
+            background: var(--surface-1);
+            border: 1px solid #D8E0FF;
             border-radius: 50px;
             color: var(--dark-text);
             cursor: pointer;
@@ -575,15 +674,15 @@
         }
 
         .category-btn:hover, .category-btn.active {
-            background: linear-gradient(135deg, var(--primary), var(--secondary));
-            color: white;
+            background: linear-gradient(135deg, #DEE8FF, #F9DFF0);
+            color: var(--dark-text);
             border-color: transparent;
             transform: translateY(-2px);
         }
 
         /* Quiz Container */
         .quiz-container {
-            background: white;
+            background: linear-gradient(135deg, var(--surface-1), var(--surface-2));
             border-radius: 25px;
             overflow: hidden;
             box-shadow: var(--box-shadow);
@@ -592,9 +691,9 @@
         }
 
         .quiz-header {
-            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            background: linear-gradient(135deg, #DEE8FF, #F9DFF0);
             padding: 1rem 1.5rem;
-            color: white;
+            color: var(--dark-text);
             display: flex;
             justify-content: space-between;
         }
@@ -603,43 +702,43 @@
         .options-container {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
-            gap: 15px;
-            padding: 1.5rem;
+            gap: 10px;
+            padding: 1rem 1.25rem 1.25rem;
         }
 
         .option {
-            background: var(--gray-light);
-            padding: 1rem 1.2rem;
-            border-radius: 12px;
+            background: linear-gradient(135deg, #0F172A, #111C33);
+            padding: 0.75rem 0.9rem;
+            border-radius: 14px;
             cursor: pointer;
             transition: var(--transition);
             display: flex;
             align-items: center;
-            gap: 12px;
-            border: 2px solid transparent;
-            color: var(--dark-text);
-            font-weight: 500;
+            gap: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: rgba(255, 255, 255, 0.92);
+            font-weight: 600;
         }
 
         .option:hover {
-            background: rgba(67, 97, 238, 0.1);
+            background: linear-gradient(135deg, #111C33, #162342);
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 10px 22px rgba(2, 6, 23, 0.22);
         }
 
         .option.selected {
-            border-color: var(--primary);
-            background: rgba(67, 97, 238, 0.1);
+            border-color: rgba(255, 255, 255, 0.32);
+            background: linear-gradient(135deg, #0B1224, #0F172A);
         }
 
         .option.disabled {
             cursor: not-allowed;
-            opacity: 0.6;
+            opacity: 0.55;
         }
 
         .option-letter {
-            width: 36px;
-            height: 36px;
+            width: 32px;
+            height: 32px;
             background: linear-gradient(135deg, var(--primary), var(--secondary));
             border-radius: 50%;
             display: flex;
@@ -647,13 +746,13 @@
             justify-content: center;
             color: white;
             font-weight: bold;
-            font-size: 1rem;
+            font-size: 0.9rem;
             flex-shrink: 0;
         }
 
         .option-text {
             flex: 1;
-            font-size: 0.95rem;
+            font-size: 0.92rem;
             line-height: 1.3;
         }
 
@@ -679,6 +778,13 @@
             color: var(--danger);
         }
 
+        #quizSubjectTitle,
+        #questionCounter,
+        #timerDisplay,
+        #voiceStatus {
+            color: var(--dark-text);
+        }
+
         /* Timer */
         .timer-bar-container {
             background: #E0E0E0;
@@ -697,7 +803,7 @@
 
         /* Leaderboard */
         .leaderboard-container {
-            background: white;
+            background: linear-gradient(135deg, var(--surface-1), var(--surface-2));
             border-radius: 25px;
             overflow: hidden;
             margin: 2rem 0;
@@ -748,7 +854,7 @@
 
         /* Footer */
         footer {
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0c29 100%);
+            background: var(--footer-bg);
             margin-top: 4rem;
             padding: 3rem 0 1.5rem;
             position: relative;
@@ -780,7 +886,7 @@
 
         .footer-section h3, .footer-section h4 {
             margin-bottom: 1rem;
-            color: white;
+            color: rgba(255, 255, 255, 0.95);
             position: relative;
             display: inline-block;
         }
@@ -797,7 +903,7 @@
         }
 
         .footer-section p {
-            color: rgba(255, 255, 255, 0.7);
+            color: rgba(255, 255, 255, 0.72);
             line-height: 1.6;
         }
 
@@ -817,7 +923,7 @@
             justify-content: center;
             transition: var(--transition);
             text-decoration: none;
-            color: white;
+            color: rgba(255, 255, 255, 0.95);
         }
 
         .social-link:hover {
@@ -833,8 +939,12 @@
             margin-bottom: 0.6rem;
         }
 
+        .footer-links li {
+            color: rgba(255, 255, 255, 0.72);
+        }
+
         .footer-links a {
-            color: rgba(255, 255, 255, 0.7);
+            color: rgba(255, 255, 255, 0.72);
             text-decoration: none;
             transition: var(--transition);
         }
@@ -854,7 +964,7 @@
             display: flex;
             align-items: center;
             gap: 10px;
-            color: rgba(255, 255, 255, 0.7);
+            color: rgba(255, 255, 255, 0.72);
         }
 
         .footer-contact i {
@@ -863,21 +973,21 @@
         }
 
         .footer-newsletter {
-            background: rgba(255, 255, 255, 0.05);
+            background: rgba(255, 255, 255, 0.07);
             border-radius: 20px;
             padding: 1.5rem;
             margin-bottom: 2rem;
             text-align: center;
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.12);
         }
 
         .footer-newsletter h4 {
-            color: white;
+            color: rgba(255, 255, 255, 0.95);
             margin-bottom: 0.5rem;
         }
 
         .footer-newsletter p {
-            color: rgba(255, 255, 255, 0.6);
+            color: rgba(255, 255, 255, 0.68);
         }
 
         .newsletter-form {
@@ -892,13 +1002,13 @@
             flex: 1;
             padding: 12px 20px;
             border-radius: 50px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            background: rgba(255, 255, 255, 0.1);
-            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            background: rgba(255, 255, 255, 0.12);
+            color: rgba(255, 255, 255, 0.92);
         }
 
         .newsletter-form input::placeholder {
-            color: rgba(255, 255, 255, 0.5);
+            color: rgba(255, 255, 255, 0.55);
         }
 
         .newsletter-form button {
@@ -913,15 +1023,16 @@
         }
 
         .newsletter-form button:hover {
+            background: linear-gradient(135deg, var(--primary-dark), var(--secondary));
             transform: translateY(-2px);
-            box-shadow: 0 4px 15px rgba(67, 97, 238, 0.4);
+            box-shadow: 0 4px 15px rgba(67, 97, 238, 0.22);
         }
 
         .footer-bottom {
             text-align: center;
             padding-top: 1.5rem;
             border-top: 1px solid rgba(255, 255, 255, 0.1);
-            color: rgba(255, 255, 255, 0.5);
+            color: rgba(255, 255, 255, 0.6);
             font-size: 0.8rem;
         }
 
@@ -949,6 +1060,7 @@
         }
 
         .scroll-top:hover {
+            background: linear-gradient(135deg, var(--primary-dark), var(--secondary));
             transform: translateY(-5px) scale(1.1);
         }
 
@@ -1035,9 +1147,24 @@
             width: 100%;
             padding: 12px 14px;
             border-radius: 14px;
-            border: 1px solid rgba(0, 0, 0, 0.12);
+            border: 1px solid rgba(67, 97, 238, 0.14);
+            background: rgba(255, 255, 255, 0.72);
+            color: var(--dark-text);
             outline: none;
             font-size: 0.95rem;
+        }
+
+        .auth-form textarea,
+        .auth-form select {
+            width: 100%;
+            padding: 12px 14px;
+            border-radius: 14px;
+            border: 1px solid rgba(67, 97, 238, 0.14);
+            background: rgba(255, 255, 255, 0.72);
+            color: var(--dark-text);
+            outline: none;
+            font-size: 0.95rem;
+            font-family: inherit;
         }
 
         .auth-form-actions {
@@ -1070,6 +1197,119 @@
         .auth-error.show {
             display: block;
         }
+
+        .consent-banner {
+            position: fixed;
+            left: 16px;
+            right: 16px;
+            bottom: 16px;
+            z-index: 3000;
+            display: none;
+        }
+
+        .consent-banner.active {
+            display: block;
+        }
+
+        .consent-content {
+            max-width: 980px;
+            margin: 0 auto;
+            background: rgba(15, 23, 42, 0.92);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            border-radius: 18px;
+            padding: 16px 16px 14px;
+            box-shadow: 0 20px 50px rgba(2, 6, 23, 0.45);
+            backdrop-filter: blur(10px);
+            color: rgba(255, 255, 255, 0.92);
+        }
+
+        .consent-title {
+            font-weight: 800;
+            margin-bottom: 6px;
+        }
+
+        .consent-text {
+            color: rgba(255, 255, 255, 0.78);
+            font-size: 0.92rem;
+            line-height: 1.55;
+        }
+
+        .consent-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+            margin-top: 12px;
+        }
+
+        .consent-btn {
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-radius: 999px;
+            padding: 10px 16px;
+            cursor: pointer;
+            font-weight: 700;
+        }
+
+        .consent-btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            border-color: transparent;
+        }
+
+        .consent-btn-secondary {
+            background: rgba(255, 255, 255, 0.08);
+            color: rgba(255, 255, 255, 0.92);
+        }
+
+        .consent-link {
+            background: transparent;
+            border: none;
+            color: rgba(255, 255, 255, 0.8);
+            cursor: pointer;
+            font-weight: 700;
+            padding: 8px 10px;
+        }
+
+        .consent-links {
+            margin-top: 10px;
+            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.7);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .consent-links a {
+            color: rgba(255, 255, 255, 0.78);
+            text-decoration: none;
+        }
+
+        .consent-links a:hover {
+            color: white;
+            text-decoration: underline;
+        }
+
+        .consent-options {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid rgba(255, 255, 255, 0.12);
+            display: grid;
+            gap: 10px;
+        }
+
+        .consent-toggle {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            color: rgba(255, 255, 255, 0.86);
+            font-size: 0.92rem;
+        }
+
+        .consent-toggle input {
+            width: 18px;
+            height: 18px;
+        }
     </style>
 </head>
 <body>
@@ -1095,6 +1335,8 @@
                     <li><a class="nav-link" data-page="quizzes"><i class="fas fa-question-circle"></i> Quizzes</a></li>
                     <li><a class="nav-link" data-page="affiliate"><i class="fas fa-store"></i> Shop</a></li>
                     <li><a class="nav-link" data-page="leaderboard"><i class="fas fa-trophy"></i> Leaders</a></li>
+                    <li><a class="nav-link" data-page="about"><i class="fas fa-info-circle"></i> About</a></li>
+                    <li><a class="nav-link" data-page="contact"><i class="fas fa-envelope"></i> Contact</a></li>
                 </ul>
             </nav>
             <div class="user-actions">
@@ -1172,22 +1414,91 @@
                 </div>
             </div>
         </section>
+
+        <section id="about" class="page">
+            <div class="hero">
+                <h2>About AK Learning Hub</h2>
+                <p>AK Learning Hub is built to make learning simple, fast, and fun — practice daily, improve your score, and build confidence one quiz at a time.</p>
+                <div style="max-width: 860px; margin: 1.5rem auto 0; text-align: left; background: linear-gradient(135deg, var(--surface-1), var(--surface-2)); border: 1px solid var(--glass-border); border-radius: 16px; padding: 1.25rem;">
+                    <h3 style="margin-top: 0;">Why students love it</h3>
+                    <ul style="margin: 0; padding-left: 1.2rem; line-height: 1.8;">
+                        <li>Pick your class (6 to 10) and get practice made for your level.</li>
+                        <li>Instant feedback helps you learn quickly and remember longer.</li>
+                        <li>Subject-wise quizzes help you prepare smarter for exams.</li>
+                        <li>Leaderboard motivates you to stay consistent and improve.</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <section id="contact" class="page">
+            <div class="hero">
+                <h2>Contact</h2>
+                <p>For support or suggestions, email us or leave a message below.</p>
+                <div style="max-width: 860px; margin: 1.5rem auto 0; text-align: left; background: linear-gradient(135deg, var(--surface-1), var(--surface-2)); border: 1px solid var(--glass-border); border-radius: 16px; padding: 1.25rem;">
+                    <div><strong>Email:</strong> <a href="mailto:aq4u0007@gmail.com">aq4u0007@gmail.com</a></div>
+                </div>
+                <div style="max-width: 860px; margin: 1rem auto 0; text-align: left; background: linear-gradient(135deg, var(--surface-1), var(--surface-3)); border: 1px solid var(--glass-border); border-radius: 16px; padding: 1.25rem;">
+                    <h3 style="margin-top: 0;">Leave a Comment</h3>
+                    <form id="contactForm" class="auth-form">
+                        <input type="text" id="contactName" placeholder="Your name (optional)" autocomplete="name">
+                        <input type="email" id="contactEmail" placeholder="Your email (optional)" autocomplete="email">
+                        <textarea id="contactMessage" class="form-control" rows="5" placeholder="Write your message..." required style="resize: vertical;"></textarea>
+                        <div class="auth-form-actions" style="justify-content: flex-end;">
+                            <button class="btn-primary" id="contactSubmitBtn" type="submit">Send Message</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </section>
+
+        <section id="privacy" class="page">
+            <div class="hero">
+                <h2>Privacy Policy</h2>
+                <p>We respect your privacy and keep data collection minimal.</p>
+                <div style="max-width: 860px; margin: 1.5rem auto 0; text-align: left; background: linear-gradient(135deg, var(--surface-1), var(--surface-2)); border: 1px solid var(--glass-border); border-radius: 16px; padding: 1.25rem; line-height: 1.8;">
+                    <p style="margin-top: 0;"><strong>What we collect:</strong> quiz attempts (score/subject), and newsletter email only if you submit it.</p>
+                    <p><strong>How we use it:</strong> to show leaderboard and improve the platform experience.</p>
+                    <p><strong>Third-party links:</strong> product links may open external websites. Their policies apply.</p>
+                    <p style="margin-bottom: 0;"><strong>Contact:</strong> email us if you want your subscription email removed.</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="terms" class="page">
+            <div class="hero">
+                <h2>Terms &amp; Conditions</h2>
+                <p>By using this website, you agree to the terms below.</p>
+                <div style="max-width: 860px; margin: 1.5rem auto 0; text-align: left; background: linear-gradient(135deg, var(--surface-1), var(--surface-3)); border: 1px solid var(--glass-border); border-radius: 16px; padding: 1.25rem; line-height: 1.8;">
+                    <ul style="margin: 0; padding-left: 1.2rem;">
+                        <li>Use the platform for learning and fair practice.</li>
+                        <li>Do not attempt to misuse or disrupt the service.</li>
+                        <li>Content and features may change over time.</li>
+                        <li>External product links are provided for convenience; purchases are handled by third-party sites.</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
     </main>
 
-    <div class="auth-backdrop" id="authBackdrop" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="auth-backdrop" id="classBackdrop" role="dialog" aria-modal="true" aria-hidden="true">
         <div class="auth-modal">
             <div class="auth-modal-header">
-                <h3 id="authTitle">Sign In</h3>
-                <button class="auth-close" id="authCloseBtn" type="button">&times;</button>
+                <h3>Select Your Class</h3>
+                <button class="auth-close" id="classCloseBtn" type="button">&times;</button>
             </div>
-            <div class="auth-error" id="authError"></div>
-            <form class="auth-form" id="authForm">
-                <input type="text" id="authName" placeholder="Full name (for sign up)" autocomplete="name">
-                <input type="email" id="authEmail" placeholder="Email address" required autocomplete="email">
-                <input type="password" id="authPassword" placeholder="Password" required autocomplete="current-password">
+            <form class="auth-form" id="classForm">
+                <select id="classSelect" required>
+                    <option value="" selected disabled>Select class (6 to 10)</option>
+                    <option value="6">Class 6</option>
+                    <option value="7">Class 7</option>
+                    <option value="8">Class 8</option>
+                    <option value="9">Class 9</option>
+                    <option value="10">Class 10</option>
+                </select>
                 <div class="auth-form-actions">
-                    <button class="auth-switch" id="authSwitchBtn" type="button">Create account</button>
-                    <button class="btn-primary" id="authSubmitBtn" type="submit"><i class="fas fa-lock"></i> Sign In</button>
+                    <button class="auth-switch" id="classCancelBtn" type="button">Cancel</button>
+                    <button class="btn-primary" id="classContinueBtn" type="submit">Continue</button>
                 </div>
             </form>
         </div>
@@ -1200,9 +1511,9 @@
                     <h3><i class="fas fa-brain"></i> AK Learning Hub</h3>
                     <p>Empowering minds through interactive learning experiences. Join thousands of students worldwide.</p>
                     <div class="social-links">
-                        <a href="https://web.facebook.com/profile.php?id=61588542307359" target="_blank" class="social-link"><i class="fab fa-facebook-f"></i></a>
-                        <a href="https://x.com/twitt_login?lang=en" target="_blank" class="social-link"><i class="fab fa-twitter"></i></a>
-                        <a href="https://www.instagram.com/" target="_blank" class="social-link"><i class="fab fa-instagram"></i></a>
+                        <a href="https://web.facebook.com/profile.php?id=61588542307359" target="_blank" rel="noopener noreferrer" class="social-link"><i class="fab fa-facebook-f"></i></a>
+                        <a href="https://x.com/ahmedaq4u" target="_blank" rel="noopener noreferrer" class="social-link"><i class="fab fa-twitter"></i></a>
+                        <a href="https://www.instagram.com/ahmedaq4u/" target="_blank" rel="noopener noreferrer" class="social-link"><i class="fab fa-instagram"></i></a>
                     </div>
                 </div>
                 <div class="footer-section">
@@ -1212,26 +1523,23 @@
                         <li><a href="#" class="nav-link-footer" data-page="quizzes">Quizzes</a></li>
                         <li><a href="#" class="nav-link-footer" data-page="affiliate">Shop</a></li>
                         <li><a href="#" class="nav-link-footer" data-page="leaderboard">Leaderboard</a></li>
+                        <li><a href="#" class="nav-link-footer" data-page="about">About</a></li>
+                        <li><a href="#" class="nav-link-footer" data-page="contact">Contact</a></li>
                     </ul>
                 </div>
                 <div class="footer-section">
                     <h4>Quiz Subjects</h4>
-                    <ul class="footer-links">
-                        <li>Mathematics</li>
-                        <li>General Science</li>
-                        <li>Physics</li>
-                        <li>Chemistry</li>
-                        <li>Biology</li>
-                        <li>Islamic History</li>
-                    </ul>
+                    <ul class="footer-links" id="footerSubjectsList"></ul>
                 </div>
                 <div class="footer-section">
-                    <h4>Get in Touch</h4>
-                    <ul class="footer-contact">
-                        <li><i class="fas fa-envelope"></i> aq4u0007@gmail.com</li>
-                        <li><i class="fas fa-map-marker-alt"></i> Karachi, Pakistan</li>
-                        <li><i class="fas fa-clock"></i> Mon-Fri: 9AM - 6PM</li>
-                    </ul>
+                    <h4>Leave a Comment</h4>
+                    <form id="footerCommentForm" class="auth-form">
+                        <input type="text" id="footerCommentName" placeholder="Your name (optional)" autocomplete="name">
+                        <textarea id="footerCommentMessage" class="form-control" rows="4" placeholder="Write your comment..." required style="resize: vertical;"></textarea>
+                        <div class="auth-form-actions" style="justify-content: flex-end;">
+                            <button class="btn-primary" id="footerCommentSubmitBtn" type="submit" style="padding: 10px 18px; font-size: 0.9rem;">Send</button>
+                        </div>
+                    </form>
                 </div>
             </div>
             <div class="footer-newsletter">
@@ -1245,17 +1553,130 @@
             <div class="footer-bottom">
                 <p>&copy; 2024 AK Learning Hub. All rights reserved. | Empowering minds worldwide</p>
                 <div style="margin-top: 0.5rem;">
-                    <a href="#" style="color: rgba(255,255,255,0.5); text-decoration: none; margin: 0 10px;">Privacy Policy</a>
-                    <a href="#" style="color: rgba(255,255,255,0.5); text-decoration: none; margin: 0 10px;">Terms of Service</a>
-                    <a href="#" style="color: rgba(255,255,255,0.5); text-decoration: none; margin: 0 10px;">FAQ</a>
+                    <a href="#" class="nav-link-footer" data-page="privacy" style="color: rgba(255,255,255,0.72); text-decoration: none; margin: 0 10px;">Privacy Policy</a>
+                    <a href="#" class="nav-link-footer" data-page="terms" style="color: rgba(255,255,255,0.72); text-decoration: none; margin: 0 10px;">Terms of Service</a>
+                    <a href="#" class="nav-link-footer" data-page="contact" style="color: rgba(255,255,255,0.72); text-decoration: none; margin: 0 10px;">Contact</a>
                 </div>
             </div>
         </div>
     </footer>
     <button class="scroll-top" id="scrollTopBtn"><i class="fas fa-arrow-up"></i></button>
 
-    <script>window.AK_API_BASE = "";</script>
-    <script type="module" src="assets/js/firebase-auth.js"></script>
+    <div class="consent-banner" id="consentBanner" role="dialog" aria-live="polite" aria-label="Privacy and cookies">
+        <div class="consent-content">
+            <div class="consent-title">Privacy &amp; Cookies</div>
+            <div class="consent-text">
+                We use cookies and similar technologies to personalize ads and measure performance. You can accept, reject, or manage your options.
+            </div>
+            <div class="consent-actions">
+                <button class="consent-btn consent-btn-secondary" id="consentRejectBtn" type="button">Reject all</button>
+                <button class="consent-btn consent-btn-primary" id="consentAcceptBtn" type="button">Accept all</button>
+                <button class="consent-link" id="consentManageBtn" type="button">Manage options</button>
+            </div>
+            <div class="consent-options" id="consentOptions" hidden>
+                <label class="consent-toggle"><input type="checkbox" id="consentAdsToggle" checked> Ads personalization</label>
+                <label class="consent-toggle"><input type="checkbox" id="consentAnalyticsToggle" checked> Analytics</label>
+                <div class="consent-actions" style="justify-content: flex-end;">
+                    <button class="consent-btn consent-btn-primary" id="consentSaveBtn" type="button">Save</button>
+                </div>
+            </div>
+            <div class="consent-links">
+                <a href="#" class="nav-link-footer" data-page="privacy">Privacy Policy</a>
+                <span>•</span>
+                <a href="#" class="nav-link-footer" data-page="terms">Terms</a>
+            </div>
+        </div>
+    </div>
+
+    <script>window.AK_API_BASE = "https://ak-learning-hub-production.up.railway.app";</script>
+    <script>
+        (function () {
+            const KEY = "ak_consent_choice";
+            const ADS_KEY = "ak_consent_ads";
+            const ANALYTICS_KEY = "ak_consent_analytics";
+            const CLIENT = "ca-pub-9385045692177118";
+
+            function getChoice() {
+                return localStorage.getItem(KEY) || "";
+            }
+
+            function setChoice(choice, ads, analytics) {
+                localStorage.setItem(KEY, choice);
+                localStorage.setItem(ADS_KEY, ads ? "1" : "0");
+                localStorage.setItem(ANALYTICS_KEY, analytics ? "1" : "0");
+            }
+
+            function loadAds() {
+                if (document.querySelector(`script[src*="adsbygoogle.js?client=${CLIENT}"]`)) return;
+                const script = document.createElement("script");
+                script.async = true;
+                script.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${CLIENT}`;
+                script.crossOrigin = "anonymous";
+                document.head.appendChild(script);
+            }
+
+            function hideBanner() {
+                const banner = document.getElementById("consentBanner");
+                if (banner) banner.classList.remove("active");
+            }
+
+            function showBanner() {
+                const banner = document.getElementById("consentBanner");
+                if (banner) banner.classList.add("active");
+            }
+
+            function init() {
+                const banner = document.getElementById("consentBanner");
+                if (!banner) return;
+
+                const options = document.getElementById("consentOptions");
+                const acceptBtn = document.getElementById("consentAcceptBtn");
+                const rejectBtn = document.getElementById("consentRejectBtn");
+                const manageBtn = document.getElementById("consentManageBtn");
+                const saveBtn = document.getElementById("consentSaveBtn");
+                const adsToggle = document.getElementById("consentAdsToggle");
+                const analyticsToggle = document.getElementById("consentAnalyticsToggle");
+
+                const choice = getChoice();
+                if (choice !== "accept" && choice !== "reject") {
+                    showBanner();
+                }
+
+                acceptBtn?.addEventListener("click", () => {
+                    setChoice("accept", true, true);
+                    hideBanner();
+                    loadAds();
+                });
+
+                rejectBtn?.addEventListener("click", () => {
+                    setChoice("reject", false, false);
+                    hideBanner();
+                });
+
+                manageBtn?.addEventListener("click", () => {
+                    if (!options) return;
+                    options.hidden = !options.hidden;
+                });
+
+                saveBtn?.addEventListener("click", () => {
+                    const ads = Boolean(adsToggle?.checked);
+                    const analytics = Boolean(analyticsToggle?.checked);
+                    const nextChoice = ads ? "accept" : "reject";
+                    setChoice(nextChoice, ads, analytics);
+                    hideBanner();
+                    if (ads) {
+                        loadAds();
+                    }
+                });
+            }
+
+            if (document.readyState === "loading") {
+                document.addEventListener("DOMContentLoaded", init);
+            } else {
+                init();
+            }
+        })();
+    </script>
     <script src="assets/js/main-app.js"></script>
 </body>
 </html>
