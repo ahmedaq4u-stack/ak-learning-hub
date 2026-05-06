@@ -15,8 +15,10 @@ let quizDatabase = {};
 let productsList = [];
 let categories = [];
 let settings = { maintenanceMode: false, voiceReading: true, defaultTimer: 30 };
+let blogsList = [];
 let editingQuestionId = null;
 let editingProductId = null;
+let editingBlogId = null;
 let pendingDelete = { type: null, id: null, subject: null };
 
 function apiFetch(url, options = {}) {
@@ -108,6 +110,14 @@ function getSelectedClassLevel() {
 
 function updateStats(payload) {
   document.getElementById("totalUsers").innerText = payload.stats.totalUsers.toLocaleString();
+  const visitorsToday = document.getElementById("visitorsToday");
+  if (visitorsToday) {
+    visitorsToday.innerText = (payload.stats.visitorsToday || 0).toLocaleString();
+  }
+  const totalVisitors = document.getElementById("totalVisitors");
+  if (totalVisitors) {
+    totalVisitors.innerText = (payload.stats.totalVisitors || 0).toLocaleString();
+  }
   document.getElementById("totalSubjects").innerText = payload.stats.totalSubjects;
   document.getElementById("totalQuestions").innerText = payload.stats.totalQuestions;
   document.getElementById("totalProducts").innerText = payload.stats.totalProducts;
@@ -156,7 +166,13 @@ function refreshQuestionList() {
     return String(question.classLevel || "") === selectedClassLevel;
   });
   const container = document.getElementById("questionList");
+  const title = document.getElementById("existingQuestionsTitle");
   if (!container) return;
+
+  if (title) {
+    const label = selectedClassLevel ? ` (Class ${escapeHtml(selectedClassLevel)})` : "";
+    title.innerHTML = `📋 Existing Questions${label} <span style="color: var(--text-gray); font-weight: 600;">(${questionList.length})</span>`;
+  }
 
   if (!questionList.length) {
     container.innerHTML = `<div style="text-align:center; padding:1rem; color: var(--text-gray);">${
@@ -267,7 +283,24 @@ function resetProductForm() {
   document.getElementById("productPrice").value = "";
   document.getElementById("productRating").value = "4.5";
   document.getElementById("productUrl").value = "";
+  const productImage = document.getElementById("productImage");
+  if (productImage) {
+    productImage.value = "";
+  }
   document.getElementById("addProductBtn").innerHTML = '<i class="fas fa-plus-circle"></i> Add Product Manually';
+}
+
+function resetBlogForm() {
+  editingBlogId = null;
+  document.getElementById("blogTitle").value = "";
+  document.getElementById("blogCoverImage").value = "";
+  document.getElementById("blogExcerpt").value = "";
+  document.getElementById("blogContent").value = "";
+  document.getElementById("blogPublished").checked = false;
+  const button = document.getElementById("saveBlogBtn");
+  if (button) {
+    button.innerHTML = '<i class="fas fa-plus-circle"></i> Add Blog Post';
+  }
 }
 
 function downloadBlob(blob, filename) {
@@ -352,6 +385,7 @@ async function loadAdminData(preferredSubject) {
   productsList = payload.products || [];
   categories = payload.categories || [];
   settings = payload.settings || settings;
+  blogsList = payload.blogs || [];
 
   updateStats(payload);
   refreshSubjectList();
@@ -360,7 +394,39 @@ async function loadAdminData(preferredSubject) {
   refreshCategoryList();
   refreshCategoryDropdown();
   refreshProductTable();
+  refreshBlogTable();
   loadSettingsForm();
+}
+
+function refreshBlogTable() {
+  const tbody = document.getElementById("blogList");
+  if (!tbody) return;
+
+  if (!blogsList.length) {
+    tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color: var(--text-gray);">No blog posts</td></tr>';
+    return;
+  }
+
+  const sorted = [...blogsList].sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+  tbody.innerHTML = sorted
+    .map((post) => {
+      const status = post.published ? "Published" : "Draft";
+      const color = post.published ? "var(--success)" : "var(--text-gray)";
+      return `
+        <tr>
+          <td>
+            <strong>${escapeHtml(post.title)}</strong><br>
+            <small style="color: var(--text-gray);">${escapeHtml(post.slug || "")}</small>
+          </td>
+          <td><span style="color:${color}; font-weight: 700;">${escapeHtml(status)}</span></td>
+          <td>
+            <button class="action-btn edit-btn" onclick="editBlog('${post.id}')"><i class="fas fa-edit"></i></button>
+            <button class="action-btn delete-btn" onclick="confirmDelete('blog', '${post.id}')"><i class="fas fa-trash"></i></button>
+          </td>
+        </tr>
+      `;
+    })
+    .join("");
 }
 
 async function handleLogin() {
@@ -756,6 +822,8 @@ function normalizeBulkQuestions(input, fallbackClassLevel) {
   const rows = Array.isArray(input) ? input : [];
   const normalized = [];
 
+  const fallbackNormalizedClass = normalizeClassLevel(fallbackClassLevel);
+
   for (const item of rows) {
     const questionText = cleanText(
       getAnyValue(item, ["question", "Question", "questionText", "QuestionText", "text", "Text", "q", "title", "prompt"])
@@ -775,7 +843,9 @@ function normalizeBulkQuestions(input, fallbackClassLevel) {
         : normalizeCorrectIndex(item, options);
     if (correct < 0 || correct > 3) continue;
 
-    const classLevel = normalizeClassLevel(getAnyValue(item, ["classLevel", "class", "grade", "level"]) || fallbackClassLevel);
+    const itemClassValue = getAnyValue(item, ["classLevel", "class", "grade", "level"]);
+    const normalizedItemClass = normalizeClassLevel(itemClassValue);
+    const classLevel = normalizedItemClass || fallbackNormalizedClass;
 
     normalized.push({
       question: questionText,
@@ -960,7 +1030,7 @@ async function submitManualProduct() {
     category: document.getElementById("productCategory").value,
     platform: document.getElementById("productPlatform").value,
     url: document.getElementById("productUrl").value.trim(),
-    image: ""
+    image: document.getElementById("productImage")?.value.trim() || ""
   };
 
   try {
@@ -968,6 +1038,67 @@ async function submitManualProduct() {
     await loadAdminData();
     resetProductForm();
     showAlert(editingProductId ? "Product updated." : "Product added.", "success");
+  } catch (error) {
+    showAlert(error.message, "danger");
+  }
+}
+
+async function submitBlog() {
+  const title = document.getElementById("blogTitle").value.trim();
+  const coverImage = document.getElementById("blogCoverImage").value.trim();
+  const excerpt = document.getElementById("blogExcerpt").value.trim();
+  const content = document.getElementById("blogContent").value;
+  const published = document.getElementById("blogPublished").checked;
+
+  if (!title) {
+    showAlert("Please enter a blog title.", "danger");
+    return;
+  }
+  if (!cleanText(content) || cleanText(content).length < 10) {
+    showAlert("Please write blog content (min 10 characters).", "danger");
+    return;
+  }
+
+  const url = editingBlogId ? `${API_BASE}/admin/blogs/${encodeURIComponent(editingBlogId)}` : `${API_BASE}/admin/blogs`;
+  const method = editingBlogId ? "PUT" : "POST";
+
+  try {
+    await apiFetch(url, {
+      method,
+      body: JSON.stringify({ title, coverImage, excerpt, content, published })
+    });
+    await loadAdminData(getSelectedSubject());
+    resetBlogForm();
+    showAlert(editingBlogId ? "Blog post updated." : "Blog post added.", "success");
+  } catch (error) {
+    showAlert(error.message, "danger");
+  }
+}
+
+function editBlog(id) {
+  const post = blogsList.find((item) => item.id === id);
+  if (!post) return;
+
+  editingBlogId = id;
+  document.getElementById("blogTitle").value = post.title || "";
+  document.getElementById("blogCoverImage").value = post.coverImage || "";
+  document.getElementById("blogExcerpt").value = post.excerpt || "";
+  document.getElementById("blogContent").value = post.content || "";
+  document.getElementById("blogPublished").checked = !!post.published;
+  const button = document.getElementById("saveBlogBtn");
+  if (button) {
+    button.innerHTML = '<i class="fas fa-save"></i> Update Blog Post';
+  }
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+async function deleteBlog(id) {
+  try {
+    await apiFetch(`${API_BASE}/admin/blogs/${encodeURIComponent(id)}`, {
+      method: "DELETE"
+    });
+    await loadAdminData(getSelectedSubject());
+    showAlert("Blog post deleted.", "success");
   } catch (error) {
     showAlert(error.message, "danger");
   }
@@ -985,6 +1116,10 @@ function editProduct(id) {
   document.getElementById("productPlatform").value = product.platform;
   document.getElementById("productRating").value = String(product.rating);
   document.getElementById("productUrl").value = product.url || "";
+  const productImage = document.getElementById("productImage");
+  if (productImage) {
+    productImage.value = product.image || "";
+  }
   document.getElementById("addProductBtn").innerHTML = '<i class="fas fa-save"></i> Update Product';
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
@@ -1018,6 +1153,10 @@ async function executeDelete() {
 
   if (pendingDelete.type === "product") {
     await deleteProduct(pendingDelete.id);
+  }
+
+  if (pendingDelete.type === "blog") {
+    await deleteBlog(pendingDelete.id);
   }
 
   closeDeleteModal();
@@ -1071,6 +1210,7 @@ async function resetData() {
     });
     resetQuestionForm();
     resetProductForm();
+    resetBlogForm();
     await loadAdminData();
     showAlert("Demo data restored.", "success");
   } catch (error) {
@@ -1125,6 +1265,8 @@ function bindEvents() {
     event.target.value = "";
   });
   on("addProductBtn", "click", submitManualProduct);
+  on("saveBlogBtn", "click", submitBlog);
+  on("resetBlogBtn", "click", resetBlogForm);
   on("confirmDeleteBtn", "click", executeDelete);
   on("saveSettingsBtn", "click", saveSettings);
   on("exportQuestionsBtn", "click", () => {
@@ -1138,6 +1280,7 @@ function bindEvents() {
 
 window.editQuestion = editQuestion;
 window.editProduct = editProduct;
+window.editBlog = editBlog;
 window.confirmDelete = confirmDelete;
 window.closeDeleteModal = closeDeleteModal;
 window.removeSubject = removeSubject;

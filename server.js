@@ -119,6 +119,7 @@ function createDefaultDatabase() {
     questions: DEFAULT_QUESTIONS,
     categories: DEFAULT_CATEGORIES,
     products: DEFAULT_PRODUCTS,
+    blogs: [],
     analytics: {
       totalVisitors: 0,
       totalPageViews: 0,
@@ -246,6 +247,7 @@ function normalizeDb(db) {
 
   normalized.categories = Array.isArray(normalized.categories) ? normalized.categories : [...DEFAULT_CATEGORIES];
   normalized.products = Array.isArray(normalized.products) ? normalized.products : [];
+  normalized.blogs = Array.isArray(normalized.blogs) ? normalized.blogs.map(normalizeBlog).filter(Boolean) : [];
   normalized.subscribers = Array.isArray(normalized.subscribers) ? normalized.subscribers : [];
   normalized.quizAttempts = Array.isArray(normalized.quizAttempts) ? normalized.quizAttempts : [];
   normalized.contactMessages = Array.isArray(normalized.contactMessages) ? normalized.contactMessages : [];
@@ -368,8 +370,68 @@ function makeSubjectKey(name) {
     .replace(/^-+|-+$/g, "");
 }
 
+function makeBlogSlug(title) {
+  return String(title || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+}
+
+function ensureUniqueBlogSlug(blogs, baseSlug, excludeId) {
+  const existing = new Set(
+    (blogs || [])
+      .filter((post) => post && post.id !== excludeId)
+      .map((post) => cleanText(post.slug))
+      .filter(Boolean)
+  );
+  if (!existing.has(baseSlug)) return baseSlug;
+  for (let i = 2; i <= 1000; i += 1) {
+    const candidate = `${baseSlug}-${i}`;
+    if (!existing.has(candidate)) return candidate;
+  }
+  return `${baseSlug}-${crypto.randomUUID().slice(0, 8)}`;
+}
+
 function cleanText(value) {
   return String(value || "").trim();
+}
+
+function cleanMultilineText(value) {
+  return String(value || "").replace(/\r\n/g, "\n").trim();
+}
+
+function normalizeBlog(input) {
+  if (!input || typeof input !== "object") return null;
+  const title = cleanText(input.title).slice(0, 120);
+  const content = cleanMultilineText(input.content).slice(0, 20000);
+  if (!title) return null;
+
+  const createdAt =
+    cleanText(input.createdAt) ||
+    cleanText(input.updatedAt) ||
+    new Date().toISOString();
+  const updatedAt = cleanText(input.updatedAt) || createdAt;
+
+  const coverImage = cleanText(input.coverImage).slice(0, 500);
+  const excerptRaw = cleanText(input.excerpt).slice(0, 240);
+  const excerpt =
+    excerptRaw ||
+    cleanText(content.replace(/\s+/g, " "))
+      .slice(0, 200);
+
+  return {
+    id: cleanText(input.id) || crypto.randomUUID(),
+    title,
+    slug: cleanText(input.slug) || makeBlogSlug(title) || crypto.randomUUID().slice(0, 8),
+    excerpt,
+    coverImage,
+    content,
+    published: Boolean(input.published),
+    createdAt,
+    updatedAt
+  };
 }
 
 function normalizeClassLevel(value) {
@@ -467,6 +529,7 @@ function buildAdminPayload(db) {
   const publicPayload = buildPublicPayload(db);
   return {
     ...publicPayload,
+    blogs: db.blogs,
     subscribers: db.subscribers,
     quizAttempts: db.quizAttempts,
     stats: {
@@ -566,6 +629,49 @@ app.get("/api/public/bootstrap", async (req, res) => {
     payload.stats.totalQuestions = getQuestionCount({ ...db, questions: payload.questions });
   }
   res.json(payload);
+});
+
+app.get("/api/public/blogs", async (req, res) => {
+  const db = await readDb();
+  const id = cleanText(req.query.id);
+  const slug = cleanText(req.query.slug).toLowerCase();
+  const limit = clampNumber(req.query.limit, 1, 50, 20);
+
+  const publishedPosts = (db.blogs || []).filter((post) => post && post.published);
+
+  if (id || slug) {
+    const post = publishedPosts.find((item) => item.id === id || cleanText(item.slug).toLowerCase() === slug);
+    if (!post) {
+      return res.status(404).json({ message: "Blog post not found." });
+    }
+    return res.json({
+      post: {
+        id: post.id,
+        title: post.title,
+        slug: post.slug,
+        excerpt: post.excerpt,
+        coverImage: post.coverImage,
+        content: post.content,
+        createdAt: post.createdAt,
+        updatedAt: post.updatedAt
+      }
+    });
+  }
+
+  const posts = [...publishedPosts]
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, limit)
+    .map((post) => ({
+      id: post.id,
+      title: post.title,
+      slug: post.slug,
+      excerpt: post.excerpt,
+      coverImage: post.coverImage,
+      createdAt: post.createdAt,
+      updatedAt: post.updatedAt
+    }));
+
+  res.json({ posts });
 });
 
 app.get("/api/public/health", async (req, res) => {
@@ -698,6 +804,94 @@ app.post("/api/admin/login", adminLoginRateLimit, async (req, res) => {
 app.get("/api/admin/bootstrap", authMiddleware, async (req, res) => {
   const db = await readDb();
   res.json(buildAdminPayload(db));
+});
+
+app.post("/api/admin/blogs", authMiddleware, async (req, res) => {
+  const db = await readDb();
+  const title = cleanText(req.body.title).slice(0, 120);
+  const content = cleanMultilineText(req.body.content).slice(0, 20000);
+  const coverImage = cleanText(req.body.coverImage).slice(0, 500);
+  const excerpt = cleanText(req.body.excerpt).slice(0, 240);
+  const published = Boolean(req.body.published);
+
+  if (!title) {
+    return res.status(400).json({ message: "Title is required." });
+  }
+  if (!content || content.length < 10) {
+    return res.status(400).json({ message: "Content is required (min 10 characters)." });
+  }
+
+  const baseSlug = makeBlogSlug(req.body.slug || title) || crypto.randomUUID().slice(0, 8);
+  const slug = ensureUniqueBlogSlug(db.blogs, baseSlug, "");
+  const now = new Date().toISOString();
+
+  db.blogs.push({
+    id: crypto.randomUUID(),
+    title,
+    slug,
+    excerpt: excerpt || cleanText(content.replace(/\s+/g, " ")).slice(0, 200),
+    coverImage,
+    content,
+    published,
+    createdAt: now,
+    updatedAt: now
+  });
+
+  await writeDb(db);
+  res.json({ message: "Blog post added successfully." });
+});
+
+app.put("/api/admin/blogs/:id", authMiddleware, async (req, res) => {
+  const db = await readDb();
+  const id = cleanText(req.params.id);
+  const index = (db.blogs || []).findIndex((post) => post.id === id);
+  if (index === -1) {
+    return res.status(404).json({ message: "Blog post not found." });
+  }
+
+  const existing = db.blogs[index];
+  const title = cleanText(req.body.title).slice(0, 120);
+  const content = cleanMultilineText(req.body.content).slice(0, 20000);
+  const coverImage = cleanText(req.body.coverImage).slice(0, 500);
+  const excerpt = cleanText(req.body.excerpt).slice(0, 240);
+  const published = Boolean(req.body.published);
+
+  if (!title) {
+    return res.status(400).json({ message: "Title is required." });
+  }
+  if (!content || content.length < 10) {
+    return res.status(400).json({ message: "Content is required (min 10 characters)." });
+  }
+
+  const baseSlug = makeBlogSlug(req.body.slug || existing.slug || title) || crypto.randomUUID().slice(0, 8);
+  const slug = ensureUniqueBlogSlug(db.blogs, baseSlug, id);
+  const now = new Date().toISOString();
+
+  db.blogs[index] = normalizeBlog({
+    ...existing,
+    title,
+    slug,
+    excerpt: excerpt || cleanText(content.replace(/\s+/g, " ")).slice(0, 200),
+    coverImage,
+    content,
+    published,
+    updatedAt: now
+  });
+
+  await writeDb(db);
+  res.json({ message: "Blog post updated successfully." });
+});
+
+app.delete("/api/admin/blogs/:id", authMiddleware, async (req, res) => {
+  const db = await readDb();
+  const id = cleanText(req.params.id);
+  const before = db.blogs.length;
+  db.blogs = (db.blogs || []).filter((post) => post && post.id !== id);
+  if (db.blogs.length === before) {
+    return res.status(404).json({ message: "Blog post not found." });
+  }
+  await writeDb(db);
+  res.json({ message: "Blog post deleted successfully." });
 });
 
 app.post("/api/admin/subjects", authMiddleware, async (req, res) => {
