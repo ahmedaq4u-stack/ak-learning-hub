@@ -140,6 +140,14 @@ function getSelectedClassLevel() {
 
 function updateStats(payload) {
   document.getElementById("totalUsers").innerText = payload.stats.totalUsers.toLocaleString();
+  const visitorsToday = document.getElementById("visitorsToday");
+  if (visitorsToday) {
+    visitorsToday.innerText = (payload.stats.visitorsToday || 0).toLocaleString();
+  }
+  const totalVisitors = document.getElementById("totalVisitors");
+  if (totalVisitors) {
+    totalVisitors.innerText = (payload.stats.totalVisitors || 0).toLocaleString();
+  }
   document.getElementById("totalSubjects").innerText = payload.stats.totalSubjects;
   document.getElementById("totalQuestions").innerText = payload.stats.totalQuestions;
   document.getElementById("totalProducts").innerText = payload.stats.totalProducts;

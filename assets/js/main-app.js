@@ -45,6 +45,8 @@ function promptForBackendOnce() {
 const PROFILE_STORAGE_KEY = "ak_learner_profile";
 const VOICE_STORAGE_KEY = "ak_voice_enabled";
 const CLASS_STORAGE_KEY = "ak_learner_class";
+const VISITOR_ID_STORAGE_KEY = "ak_visitor_id";
+const VISIT_SENT_SESSION_KEY = "ak_visit_sent";
 const ROUND_SIZE = 20;
 
 let publicData = {
@@ -142,6 +144,30 @@ function apiPost(url, body) {
     }
     return payload;
   });
+}
+
+function ensureVisitorId() {
+  const existing = String(localStorage.getItem(VISITOR_ID_STORAGE_KEY) || "").trim();
+  if (existing) return existing;
+  const generated =
+    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID()
+      : `v_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+  localStorage.setItem(VISITOR_ID_STORAGE_KEY, generated);
+  return generated;
+}
+
+async function trackVisitOnce() {
+  if (sessionStorage.getItem(VISIT_SENT_SESSION_KEY) === "true") return;
+  sessionStorage.setItem(VISIT_SENT_SESSION_KEY, "true");
+  try {
+    await apiPost(`${PUBLIC_API_BASE}/visit`, {
+      visitorId: ensureVisitorId(),
+      path: window.location.pathname
+    });
+  } catch (error) {
+    sessionStorage.removeItem(VISIT_SENT_SESSION_KEY);
+  }
 }
 
 function showMessage(message) {
@@ -1058,6 +1084,7 @@ window.buyProduct = buyProduct;
 initParticles();
 bindEvents();
 updateProfileUi();
+trackVisitOnce();
 loadPublicData().catch((error) => {
   showMessage(`Failed to load website data: ${error.message}`);
 });
