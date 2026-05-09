@@ -11,7 +11,9 @@ const PORT = process.env.PORT || 3000;
 const ROOT_DIR = __dirname;
 const DB_DIR = path.join(ROOT_DIR, "data");
 const DB_PATH = path.join(DB_DIR, "db.json");
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "ejaz4u123";
+const DEFAULT_ADMIN_PASSWORD = "ejaz4u123";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || DEFAULT_ADMIN_PASSWORD;
+const FORCE_ADMIN_PASSWORD = String(process.env.FORCE_ADMIN_PASSWORD || "").trim().toLowerCase() === "true";
 const TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
 const DATABASE_URL = process.env.DATABASE_URL || "";
 const ALLOW_DB_FALLBACK =
@@ -370,6 +372,27 @@ function makeSubjectKey(name) {
 
 function cleanText(value) {
   return String(value || "").trim();
+}
+
+function shouldUpdateAdminPassword(currentPassword) {
+  if (!ADMIN_PASSWORD) return false;
+  if (FORCE_ADMIN_PASSWORD) return true;
+  const cleaned = cleanText(currentPassword);
+  return !cleaned || cleaned === DEFAULT_ADMIN_PASSWORD;
+}
+
+async function applyAdminPasswordOverride() {
+  try {
+    const db = await readDb();
+    if (shouldUpdateAdminPassword(db.adminPassword) && db.adminPassword !== ADMIN_PASSWORD) {
+      db.adminPassword = ADMIN_PASSWORD;
+      await writeDb(db);
+      console.log("Admin password updated from environment variables.");
+    }
+  } catch (error) {
+    console.error("Failed to apply admin password override.");
+    console.error(error);
+  }
 }
 
 function normalizeClassLevel(value) {
@@ -1041,6 +1064,7 @@ app.use(express.static(ROOT_DIR));
 
 async function start() {
   await ensureDatabaseStore();
+  await applyAdminPasswordOverride();
   app.listen(PORT, () => {
     console.log(`AK Learning Hub server running on http://localhost:${PORT}`);
   });
