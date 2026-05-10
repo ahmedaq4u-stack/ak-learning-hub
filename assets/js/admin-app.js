@@ -126,7 +126,7 @@ function cleanText(value) {
 
 function normalizeClassLevel(value) {
   const trimmed = String(value || "").trim();
-  return /^(6|7|8|9|10)$/.test(trimmed) ? trimmed : "";
+  return /^(6|7|8|9|10|11|12)$/.test(trimmed) ? trimmed : "";
 }
 
 function getSelectedSubject() {
@@ -135,7 +135,7 @@ function getSelectedSubject() {
 
 function getSelectedClassLevel() {
   const value = String(document.getElementById("classSelectAdmin")?.value || "").trim();
-  return /^(6|7|8|9|10)$/.test(value) ? value : "";
+  return /^(6|7|8|9|10|11|12)$/.test(value) ? value : "";
 }
 
 function updateStats(payload) {

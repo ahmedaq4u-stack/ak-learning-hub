@@ -5,19 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>AK Learning Hub | Master Your Knowledge</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script>
-        (function () {
-            try {
-                const choice = localStorage.getItem("ak_consent_choice");
-                if (choice !== "accept") return;
-                const script = document.createElement("script");
-                script.async = true;
-                script.src = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9385045692177118";
-                script.crossOrigin = "anonymous";
-                document.head.appendChild(script);
-            } catch (error) {}
-        })();
-    </script>
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9385045692177118" crossorigin="anonymous"></script>
     <style>
         * {
             margin: 0;
@@ -1422,7 +1410,7 @@
                 <div style="max-width: 860px; margin: 1.5rem auto 0; text-align: left; background: linear-gradient(135deg, var(--surface-1), var(--surface-2)); border: 1px solid var(--glass-border); border-radius: 16px; padding: 1.25rem;">
                     <h3 style="margin-top: 0;">Why students love it</h3>
                     <ul style="margin: 0; padding-left: 1.2rem; line-height: 1.8;">
-                        <li>Pick your class (6 to 10) and get practice made for your level.</li>
+                        <li>Pick your class (6 to 12) and get practice made for your level.</li>
                         <li>Instant feedback helps you learn quickly and remember longer.</li>
                         <li>Subject-wise quizzes help you prepare smarter for exams.</li>
                         <li>Leaderboard motivates you to stay consistent and improve.</li>
@@ -1489,12 +1477,14 @@
             </div>
             <form class="auth-form" id="classForm">
                 <select id="classSelect" required>
-                    <option value="" selected disabled>Select class (6 to 10)</option>
+                    <option value="" selected disabled>Select class (6 to 12)</option>
                     <option value="6">Class 6</option>
                     <option value="7">Class 7</option>
                     <option value="8">Class 8</option>
                     <option value="9">Class 9</option>
                     <option value="10">Class 10</option>
+                    <option value="11">Class 11</option>
+                    <option value="12">Class 12</option>
                 </select>
                 <div class="auth-form-actions">
                     <button class="auth-switch" id="classCancelBtn" type="button">Cancel</button>

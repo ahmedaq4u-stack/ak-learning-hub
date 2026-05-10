@@ -77,7 +77,7 @@ let pendingClassSubjectKey = "";
 
 function getStoredClass() {
   const value = String(localStorage.getItem(CLASS_STORAGE_KEY) || "").trim();
-  return /^(6|7|8|9|10)$/.test(value) ? value : "";
+  return /^(6|7|8|9|10|11|12)$/.test(value) ? value : "";
 }
 
 function openClassModal(subjectKey) {
@@ -648,7 +648,7 @@ function startQuizInternal(subjectKey) {
 
   const classLevel = getStoredClass();
   if (!classLevel) {
-    showMessage("Please select your class (6 to 10) to continue.");
+    showMessage("Please select your class (6 to 12) to continue.");
     return;
   }
 
@@ -1054,8 +1054,8 @@ function bindEvents() {
   classForm?.addEventListener("submit", (event) => {
     event.preventDefault();
     const value = String(classSelect?.value || "").trim();
-    if (!/^(6|7|8|9|10)$/.test(value)) {
-      showMessage("Please select your class (6 to 10).");
+    if (!/^(6|7|8|9|10|11|12)$/.test(value)) {
+      showMessage("Please select your class (6 to 12).");
       return;
     }
     localStorage.setItem(CLASS_STORAGE_KEY, value);

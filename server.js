@@ -397,7 +397,7 @@ async function applyAdminPasswordOverride() {
 
 function normalizeClassLevel(value) {
   const cleaned = cleanText(value);
-  return /^(6|7|8|9|10)$/.test(cleaned) ? cleaned : "";
+  return /^(6|7|8|9|10|11|12)$/.test(cleaned) ? cleaned : "";
 }
 
 function filterQuestionsByClass(questionsBySubject, classLevel) {
