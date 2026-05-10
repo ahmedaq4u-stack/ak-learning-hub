@@ -407,10 +407,23 @@ function filterQuestionsByClass(questionsBySubject, classLevel) {
   const filtered = {};
   for (const [subjectKey, list] of Object.entries(questionsBySubject || {})) {
     filtered[subjectKey] = Array.isArray(list)
-      ? list.filter((question) => String(question?.classLevel || "") === normalizedClass)
+      ? list.filter((question) => !question?.classLevel || String(question?.classLevel || "") === normalizedClass)
       : [];
   }
   return filtered;
+}
+
+function buildQuestionCountsBySubject(questionsBySubject, classLevel) {
+  const normalizedClass = normalizeClassLevel(classLevel);
+  const counts = {};
+  for (const [subjectKey, list] of Object.entries(questionsBySubject || {})) {
+    const rows = Array.isArray(list) ? list : [];
+    const filtered = normalizedClass
+      ? rows.filter((question) => !question?.classLevel || String(question?.classLevel || "") === normalizedClass)
+      : rows;
+    counts[subjectKey] = filtered.length;
+  }
+  return counts;
 }
 
 function toTitleFromSlug(slug) {
@@ -584,11 +597,40 @@ app.get("/api/public/bootstrap", async (req, res) => {
   const db = await readDb();
   const payload = buildPublicPayload(db);
   const classLevel = normalizeClassLevel(req.query.class);
+  const includeQuestions = String(req.query.includeQuestions || "").trim().toLowerCase();
+  const shouldIncludeQuestions = includeQuestions === "1" || includeQuestions === "true" || includeQuestions === "yes";
+
+  payload.questionCounts = buildQuestionCountsBySubject(payload.questions, classLevel);
+  payload.stats.totalQuestions = Object.values(payload.questionCounts).reduce((total, count) => total + count, 0);
+
   if (classLevel) {
     payload.questions = filterQuestionsByClass(payload.questions, classLevel);
-    payload.stats.totalQuestions = getQuestionCount({ ...db, questions: payload.questions });
+  }
+  if (!shouldIncludeQuestions) {
+    payload.questions = {};
   }
   res.json(payload);
+});
+
+app.get("/api/public/questions", async (req, res) => {
+  const db = await readDb();
+  const subject = cleanText(req.query.subject);
+  const classLevel = normalizeClassLevel(req.query.class);
+
+  if (!subject || !db.questions[subject]) {
+    return res.status(400).json({ message: "Valid subject is required." });
+  }
+
+  const list = Array.isArray(db.questions[subject]) ? db.questions[subject] : [];
+  const filtered = classLevel
+    ? list.filter((question) => !question?.classLevel || String(question?.classLevel || "") === classLevel)
+    : list;
+
+  res.json({
+    subject,
+    classLevel: classLevel || "",
+    questions: filtered
+  });
 });
 
 app.get("/api/public/health", async (req, res) => {

@@ -52,6 +52,7 @@ const ROUND_SIZE = 20;
 let publicData = {
   subjects: [],
   questions: {},
+  questionCounts: {},
   categories: [],
   products: [],
   settings: {
@@ -371,12 +372,17 @@ class Particle {
 }
 
 function initParticles() {
+  const prefersReducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const isSmallScreen = window.matchMedia && window.matchMedia("(max-width: 768px)").matches;
+  const lowCoreCount = typeof navigator !== "undefined" && Number(navigator.hardwareConcurrency || 0) > 0 && navigator.hardwareConcurrency <= 2;
+  if (prefersReducedMotion || isSmallScreen || lowCoreCount) return;
+
   const canvas = document.getElementById("particleCanvas");
   const ctx = canvas.getContext("2d");
   const particles = [];
 
   resizeCanvas();
-  for (let i = 0; i < 80; i += 1) {
+  for (let i = 0; i < 50; i += 1) {
     particles.push(new Particle(canvas));
   }
 
@@ -408,7 +414,9 @@ function renderQuizCards(containerId) {
 
   container.innerHTML = publicData.subjects
     .map((subject) => {
-      const count = (publicData.questions[subject.key] || []).length;
+      const count =
+        Number(publicData.questionCounts?.[subject.key]) ||
+        (publicData.questions[subject.key] || []).length;
       return `
         <div class="quiz-card" onclick="startQuiz('${subject.key}')">
           <div class="quiz-card-inner">
@@ -689,7 +697,34 @@ function startQuizInternal(subjectKey) {
 
 function startQuiz(subjectKey) {
   if (!ensureClassSelected(subjectKey)) return;
-  startQuizInternal(subjectKey);
+
+  const run = async () => {
+    try {
+      await ensureQuestionsLoaded(subjectKey);
+      renderQuizCards("quizCardsGrid");
+      renderQuizCards("quizzesGrid");
+      startQuizInternal(subjectKey);
+    } catch (error) {
+      showMessage(error.message);
+    }
+  };
+
+  run();
+}
+
+async function ensureQuestionsLoaded(subjectKey) {
+  const existing = publicData.questions?.[subjectKey];
+  if (Array.isArray(existing) && existing.length) return existing;
+
+  const classLevel = getStoredClass();
+  if (!classLevel) return [];
+
+  const query = new URLSearchParams({ subject: String(subjectKey || ""), class: String(classLevel || "") });
+  const payload = await apiGet(`${PUBLIC_API_BASE}/questions?${query.toString()}`);
+  const list = Array.isArray(payload?.questions) ? payload.questions : [];
+  publicData.questions[subjectKey] = list;
+  publicData.questionCounts[subjectKey] = list.length;
+  return list;
 }
 
 function loadQuestion() {
@@ -987,6 +1022,12 @@ async function loadPublicData() {
       ? `${PUBLIC_API_BASE}/bootstrap?class=${encodeURIComponent(classLevel)}`
       : `${PUBLIC_API_BASE}/bootstrap`;
     publicData = await apiGet(url);
+    if (!publicData.questionCounts) {
+      publicData.questionCounts = {};
+    }
+    if (!publicData.questions) {
+      publicData.questions = {};
+    }
     renderQuizCards("quizCardsGrid");
     renderQuizCards("quizzesGrid");
     renderProducts();
