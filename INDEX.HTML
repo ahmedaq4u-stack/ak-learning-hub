@@ -28,11 +28,11 @@
             --gray: #6C757D;
             --dark: #212529;
             --dark-text: #2C3E50;
-            --glass-bg: rgba(244, 241, 255, 0.92);
+            --glass-bg: rgba(255, 255, 255, 0.9);
             --glass-border: rgba(117, 127, 182, 0.18);
-            --surface-1: #F7F4FF;
-            --surface-2: #EEF4FF;
-            --surface-3: #FFF3F8;
+            --surface-1: #FFFFFF;
+            --surface-2: #F1F7FF;
+            --surface-3: #F3F4FF;
             --border-radius: 20px;
             --box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
             --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -43,7 +43,7 @@
 
         body {
             font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #F7F3FF 0%, #EEF5FF 55%, #FFF5F9 100%);
+            background: linear-gradient(135deg, #F7FAFF 0%, #EFF6FF 52%, #F8FAFF 100%);
             color: var(--dark);
             min-height: 100vh;
             overflow-x: hidden;
@@ -64,14 +64,14 @@
             position: absolute;
             border-radius: 50%;
             filter: blur(100px);
-            opacity: 0.4;
+            opacity: 0.26;
             animation: float 25s infinite ease-in-out;
         }
 
         .sphere-1 {
             width: 600px;
             height: 600px;
-            background: radial-gradient(circle, #4361EE, #F72585);
+            background: radial-gradient(circle, rgba(67, 97, 238, 0.55), rgba(247, 37, 133, 0.2));
             top: -300px;
             left: -300px;
         }
@@ -79,7 +79,7 @@
         .sphere-2 {
             width: 700px;
             height: 700px;
-            background: radial-gradient(circle, #FFB703, #06D6A0);
+            background: radial-gradient(circle, rgba(6, 214, 160, 0.35), rgba(67, 97, 238, 0.22));
             bottom: -350px;
             right: -350px;
         }
@@ -87,7 +87,7 @@
         .sphere-3 {
             width: 400px;
             height: 400px;
-            background: radial-gradient(circle, #FB8B67, #4361EE);
+            background: radial-gradient(circle, rgba(255, 183, 3, 0.28), rgba(67, 97, 238, 0.26));
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
@@ -325,6 +325,10 @@
             transform: translateY(-2px);
         }
 
+        main .btn-outline:hover {
+            background: linear-gradient(135deg, #DBEAFE, #E0E7FF);
+        }
+
         header .btn-outline {
             background: rgba(255, 255, 255, 0.1);
             border: 1px solid rgba(255, 255, 255, 0.22);
@@ -347,6 +351,10 @@
             cursor: pointer;
             transition: var(--transition);
             box-shadow: 0 4px 12px rgba(67, 97, 238, 0.18);
+        }
+
+        main .btn-primary {
+            background: linear-gradient(135deg, #DBEAFE, #E0E7FF);
         }
 
         .btn-primary:hover {
@@ -372,7 +380,7 @@
         }
 
         .voice-control.active {
-            background: linear-gradient(135deg, #DCE6FF, #F8DFEF);
+            background: linear-gradient(135deg, #DBEAFE, #E0E7FF);
             color: var(--dark-text);
         }
 
@@ -558,7 +566,7 @@
         }
 
         .quiz-card-back {
-            background: linear-gradient(135deg, #E5EDFF, #FDE5F1);
+            background: linear-gradient(135deg, #DBEAFE, #E0E7FF);
             color: var(--dark-text);
             transform: rotateY(180deg);
         }
@@ -662,7 +670,7 @@
         }
 
         .category-btn:hover, .category-btn.active {
-            background: linear-gradient(135deg, #DEE8FF, #F9DFF0);
+            background: linear-gradient(135deg, #DBEAFE, #E0E7FF);
             color: var(--dark-text);
             border-color: transparent;
             transform: translateY(-2px);
@@ -679,7 +687,7 @@
         }
 
         .quiz-header {
-            background: linear-gradient(135deg, #DEE8FF, #F9DFF0);
+            background: linear-gradient(135deg, #DBEAFE, #E0E7FF);
             padding: 1rem 1.5rem;
             color: var(--dark-text);
             display: flex;
