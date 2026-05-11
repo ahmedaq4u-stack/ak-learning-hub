@@ -184,6 +184,17 @@ function escapeHtml(value) {
   });
 }
 
+function normalizeOptionForDisplay(value) {
+  let text = String(value || "").trim();
+  if (!text) return "";
+  text = text.replace(/^\s*([A-D]|[1-4])[\).:\-]\s*/i, "");
+  text = text.replace(/[✓✔✅]/g, "");
+  text = text.replace(/\s*\(\s*(correct|answer|right)\s*\)\s*$/i, "");
+  text = text.replace(/\s*(?:-|\u2013|\u2014)?\s*(correct\s*answer|right\s*answer|correct)\s*$/i, "");
+  text = text.replace(/\s{2,}/g, " ").trim();
+  return text;
+}
+
 function getFirebaseApi() {
   return window.AK_FIREBASE || null;
 }
@@ -752,7 +763,7 @@ function loadQuestion() {
       (option, index) => `
         <div class="option" data-opt-index="${index}" onclick="checkAnswer(${index})">
           <div class="option-letter">${String.fromCharCode(65 + index)}</div>
-          <div class="option-text">${escapeHtml(option)}</div>
+          <div class="option-text">${escapeHtml(normalizeOptionForDisplay(option))}</div>
         </div>
       `
     )
@@ -810,7 +821,7 @@ function checkAnswer(selectedIndex) {
     currentQuiz.score += 1;
     feedbackMessage.innerHTML = "Correct! Well done.";
   } else {
-    feedbackMessage.innerHTML = `Incorrect. The correct answer is: ${escapeHtml(question.options[question.correct])}`;
+    feedbackMessage.innerHTML = `Incorrect. The correct answer is: ${escapeHtml(normalizeOptionForDisplay(question.options[question.correct]))}`;
   }
 
   currentQuiz.answers.push({ selected: selectedIndex, correct });
@@ -845,7 +856,7 @@ function startTimer() {
       const feedbackMessage = document.getElementById("feedbackMessage");
       feedbackMessage.style.display = "block";
       feedbackMessage.className = "feedback-message feedback-incorrect";
-      feedbackMessage.innerHTML = `Time is up. The correct answer is: ${escapeHtml(question.options[question.correct])}`;
+      feedbackMessage.innerHTML = `Time is up. The correct answer is: ${escapeHtml(normalizeOptionForDisplay(question.options[question.correct]))}`;
 
       window.setTimeout(moveToNextQuestion, 1500);
     }
