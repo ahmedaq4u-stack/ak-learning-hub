@@ -627,6 +627,7 @@ function showPage(pageId) {
 
 function speakText(text) {
   if (!voiceEnabled || !speechSynthesisAvailable) return;
+  if (String(currentQuiz?.subject || "").trim().toLowerCase() === "maths") return;
   window.speechSynthesis.cancel();
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.rate = 0.9;
@@ -641,7 +642,11 @@ function toggleVoice() {
   localStorage.setItem(VOICE_STORAGE_KEY, String(voiceEnabled));
   applySettingsToUi();
 
-  if (voiceEnabled && currentQuiz?.questions?.[currentQuiz.currentIndex]) {
+  if (
+    voiceEnabled &&
+    currentQuiz?.questions?.[currentQuiz.currentIndex] &&
+    String(currentQuiz?.subject || "").trim().toLowerCase() !== "maths"
+  ) {
     speakText(currentQuiz.questions[currentQuiz.currentIndex].question);
   } else if (speechSynthesisAvailable) {
     window.speechSynthesis.cancel();
@@ -691,6 +696,9 @@ function startQuizInternal(subjectKey) {
   };
 
   showPage("quiz");
+  if (speechSynthesisAvailable && String(currentQuiz?.subject || "").trim().toLowerCase() === "maths") {
+    window.speechSynthesis.cancel();
+  }
   loadQuestion();
   startTimer();
 }
