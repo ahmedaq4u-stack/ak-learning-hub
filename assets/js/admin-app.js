@@ -124,6 +124,18 @@ function cleanText(value) {
   return String(value || "").trim();
 }
 
+function normalizeOptionText(value) {
+  let text = cleanText(value);
+  if (!text) return "";
+
+  text = text.replace(/^\s*([A-D]|[1-4])[\).:\-]\s*/i, "");
+  text = text.replace(/[✓✔✅]/g, "");
+  text = text.replace(/\s*\(\s*(correct|answer|right)\s*\)\s*$/i, "");
+  text = text.replace(/\s*(?:-|\u2013|\u2014)?\s*(correct\s*answer|right\s*answer|correct)\s*$/i, "");
+  text = text.replace(/\s{2,}/g, " ").trim();
+  return text;
+}
+
 function normalizeClassLevel(value) {
   const trimmed = String(value || "").trim();
   return /^(6|7|8|9|10|11|12)$/.test(trimmed) ? trimmed : "";
@@ -336,10 +348,10 @@ function parseBulkQuestionsFromFormat(text) {
 
     let correctIndex = -1;
     const cleanedOptions = currentOptions.map((option, index) => {
-      if (option.includes("✓")) {
+      if (/[✓✔✅]/.test(option)) {
         correctIndex = index;
       }
-      return option.replace("✓", "").trim();
+      return normalizeOptionText(option);
     });
 
     if (correctIndex !== -1) {
@@ -861,8 +873,8 @@ function normalizeCorrectIndex(item, options) {
   if (letter === "C") return 2;
   if (letter === "D") return 3;
 
-  const normalizedValue = value.toLowerCase();
-  const matchIndex = options.findIndex((option) => option.toLowerCase() === normalizedValue);
+  const normalizedValue = normalizeOptionText(value).toLowerCase();
+  const matchIndex = options.findIndex((option) => normalizeOptionText(option).toLowerCase() === normalizedValue);
   return matchIndex;
 }
 
@@ -893,9 +905,9 @@ function extractOptionsAndCorrect(item) {
           if (value.correct === true || value.isCorrect === true) {
             correct = correct ?? 0;
           }
-          return cleanText(value.text ?? value.value ?? value.option ?? value.answer ?? value.label ?? "");
+          return normalizeOptionText(value.text ?? value.value ?? value.option ?? value.answer ?? value.label ?? "");
         }
-        return cleanText(value);
+        return normalizeOptionText(value);
       })
       .filter(Boolean);
 
@@ -914,7 +926,7 @@ function extractOptionsAndCorrect(item) {
     if (hasLetters) {
       const options = ["A", "B", "C", "D"].map((k) => {
         const realKey = Object.keys(direct).find((rk) => String(rk).toUpperCase() === k);
-        return cleanText(direct[realKey]);
+        return normalizeOptionText(direct[realKey]);
       });
       return { options, correct };
     }
@@ -925,7 +937,7 @@ function extractOptionsAndCorrect(item) {
   if (item && typeof item === "object") {
     for (const [rawKey, rawValue] of Object.entries(item)) {
       const key = String(rawKey).trim();
-      const value = cleanText(rawValue);
+      const value = normalizeOptionText(rawValue);
       if (!value) continue;
 
       const upper = key.toUpperCase();
@@ -972,7 +984,7 @@ function parseOptionsFromText(text) {
   for (const line of lines) {
     const match = line.match(/^([A-D])[).:\-]\s*(.+)$/i);
     if (match) {
-      map[match[1].toUpperCase()] = cleanText(match[2]);
+      map[match[1].toUpperCase()] = normalizeOptionText(match[2]);
     }
   }
   const options = ["A", "B", "C", "D"].map((k) => map[k]).filter(Boolean);
