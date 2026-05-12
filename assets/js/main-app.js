@@ -423,11 +423,22 @@ function renderQuizCards(containerId) {
   const container = document.getElementById(containerId);
   if (!container) return;
 
-  container.innerHTML = publicData.subjects
+  const subjects = Array.isArray(publicData.subjects) ? publicData.subjects : [];
+  const cards = subjects
     .map((subject) => {
-      const count =
-        Number(publicData.questionCounts?.[subject.key]) ||
-        (publicData.questions[subject.key] || []).length;
+      const count = Number(publicData.questionCounts?.[subject.key]) || (publicData.questions[subject.key] || []).length;
+      return { subject, count };
+    })
+    .filter((item) => item.count >= ROUND_SIZE);
+
+  if (!cards.length) {
+    container.innerHTML =
+      '<div style="text-align:center; padding: 1.25rem; color: #475569; background: rgba(255,255,255,0.6); border: 1px solid rgba(2,6,23,0.06); border-radius: 16px;">New quizzes are coming soon.</div>';
+    return;
+  }
+
+  container.innerHTML = cards
+    .map(({ subject, count }) => {
       return `
         <div class="quiz-card" onclick="startQuiz('${subject.key}')">
           <div class="quiz-card-inner">
